@@ -497,19 +497,29 @@
     // ==============================================================
     // CARGA DE DATOS LOCAL Y ONLINE (EXCLUSIVO vista_pallet_despachados)
     // ==============================================================
+    // ==============================================================
+    // CARGA HÍBRIDA (OFFLINE ELECTRON / CACHE LOCAL WEB)
+    // ==============================================================
     async function cargarTodasLasTablas() {
-      // Si está corriendo en Electron y la base local existe:
+      // 1. Si estamos en Desktop (Electron)
       if (db) {
         try {
           listaDespachos = db.prepare('SELECT * FROM local_vista_pallet_despachados').all();
           listaPalletDetalle = db.prepare('SELECT * FROM local_pallet_detalle').all();
           listaCalibres = db.prepare('SELECT * FROM local_pallet_detalle_calibres').all();
-        } catch(e) { 
-          console.warn("Fallo lectura local:", e); 
-        }
+        } catch(e) { console.warn("Fallo lectura local:", e); }
+      } 
+      // 2. Si estamos en la Web (Safari / Chrome): Leer de la caché del navegador
+      else {
+        try {
+          const cacheDespachos = localStorage.getItem('cache_vista_pallet_despachados');
+          if (cacheDespachos) {
+            listaDespachos = JSON.parse(cacheDespachos);
+          }
+        } catch(e) { console.warn("Error leyendo cache web:", e); }
       }
 
-      // Si no hay datos (o estamos en Safari/Web), consultar directamente a Supabase
+      // Si no hay datos (primera vez que entra o vacía), sincronizamos
       if (listaDespachos.length === 0) {
         await sincronizar();
         return;
@@ -518,7 +528,6 @@
       renderizarPestana1Clientes();
       renderizarPestana2Fechas();
     }
-
 
     async function sincronizar() {
       const btn = document.getElementById('btnSync');
@@ -535,7 +544,7 @@
 
         lanzarToast("Descargando despachos...", "success");
 
-        // Rama A: En Electron Desktop con SQLite/JSON
+        // Rama A: Desktop Electron (SQLite/JSON)
         if (db && servSinc && typeof servSinc.sincronizarDespachosCompleto === 'function') {
           const res = await servSinc.sincronizarDespachosCompleto((progreso) => {
             if (btn) btn.innerHTML = `<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/></svg> ${progreso}`;
@@ -545,24 +554,51 @@
           listaPalletDetalle = db.prepare('SELECT * FROM local_pallet_detalle').all();
           listaCalibres = db.prepare('SELECT * FROM local_pallet_detalle_calibres').all();
 
-        } else {
-          // Rama B: En Web / Safari (Consulta directa vía Supabase Client)
-          console.log("🌐 Consultando directamente a Supabase...");
+        } 
+        // Rama B: Entorno Web (Descarga paginada de TODOS los registros)
+        else {
+          console.log("🌐 Descargando la tabla completa desde Supabase en bloques de 1000...");
+          let todosLosDespachos = [];
+          let desde = 0;
+          const paso = 1000;
+          let hayMas = true;
 
-          const [resDesp, resDet, resCal] = await Promise.all([
-            supabaseClient.from('vista_pallet_despachados').select('*').order('fecha_salida', { ascending: false }).limit(5000),
-            supabaseClient.from('pallet_detalle').select('*').limit(5000),
-            supabaseClient.from('pallet_detalle_calibres').select('*').limit(5000)
-          ]);
+          while (hayMas) {
+            const hasta = desde + paso - 1;
+            const { data, error } = await supabaseClient
+              .from('vista_pallet_despachados')
+              .select('*')
+              .order('id_registro_unico', { ascending: false })
+              .range(desde, hasta);
 
-          if (resDesp.error) throw resDesp.error;
-          
-          listaDespachos = resDesp.data || [];
-          listaPalletDetalle = resDet.data || [];
-          listaCalibres = resCal.data || [];
+            if (error) throw error;
+
+            if (data && data.length > 0) {
+              todosLosDespachos = todosLosDespachos.concat(data);
+              if (btn) {
+                btn.innerHTML = `<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/></svg> ${todosLosDespachos.length}`;
+              }
+              if (data.length < paso) {
+                hayMas = false;
+              } else {
+                desde += paso;
+              }
+            } else {
+              hayMas = false;
+            }
+          }
+
+          listaDespachos = todosLosDespachos;
+
+          // Guardar en la caché local del navegador para acceso instantáneo
+          try {
+            localStorage.setItem('cache_vista_pallet_despachados', JSON.stringify(listaDespachos));
+          } catch(errQuota) {
+            console.warn("Storage lleno o restringido en navegador:", errQuota);
+          }
         }
 
-        lanzarToast(`Cargados ${listaDespachos.length} despachos.`);
+        lanzarToast(`Cargados ${listaDespachos.length.toLocaleString()} despachos.`);
         renderizarPestana1Clientes();
         renderizarPestana2Fechas();
 
@@ -577,7 +613,6 @@
         }
       }
     }
-
     // ==============================================================
     // MOTOR RELACIONAL EXACTO
     // ==============================================================
