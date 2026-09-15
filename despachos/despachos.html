@@ -398,6 +398,32 @@
   </div>
 
   <script>
+
+    document.addEventListener('contextmenu', (e) => e.preventDefault());
+
+  // Bloquear atajos de inspección y consola
+  document.addEventListener('keydown', (e) => {
+    // F12
+    if (e.keyCode === 123) {
+      e.preventDefault();
+      return false;
+    }
+    // Ctrl+Shift+I / Cmd+Option+I (DevTools)
+    // Ctrl+Shift+J / Cmd+Option+J (Consola)
+    // Ctrl+U / Cmd+Option+U (Ver código fuente)
+    // Ctrl+S / Cmd+S (Guardar página)
+    if ((e.ctrlKey || e.metaKey) && (e.shiftKey && (e.key === 'I' || e.key === 'i' || e.key === 'J' || e.key === 'j' || e.key === 'C' || e.key === 'c'))) {
+      e.preventDefault();
+      return false;
+    }
+    if ((e.ctrlKey || e.metaKey) && (e.key === 'u' || e.key === 'U' || e.key === 's' || e.key === 'S')) {
+      e.preventDefault();
+      return false;
+    }
+  });
+
+  // Evitar arrastre de imágenes y textos
+  document.addEventListener('dragstart', (e) => e.preventDefault());
     const SUPABASE_URL = 'https://veqpyhifwubcdxocckmf.supabase.co';
     const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZlcXB5aGlmd3ViY2R4b2Nja21mIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU4NzI5NzAsImV4cCI6MjA5MTQ0ODk3MH0.mIRsPLLoHn9jQtvCCwxG3aNFWtXIdcV12kLTC_MqybY';
     const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
