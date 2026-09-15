@@ -30,7 +30,6 @@
   "build": {
     "appId": "com.ceco.comexdespachos",
     "productName": "COMEX",
-    "icon": "icono.ico",
     "directories": {
       "output": "dist"
     },
@@ -38,51 +37,17 @@
       "target": ["nsis", "portable"],
       "icon": "icono.ico"
     },
-    "nsis": {
-      "oneClick": false,
-      "allowToChangeInstallationDirectory": true,
-      "createDesktopShortcut": true,
-      "createStartMenuShortcut": true,
-      "shortcutName": "COMEX",
-      "installerIcon": "icono.ico",
-      "uninstallerIcon": "icono.ico"
-    },
     "mac": {
       "category": "public.app-category.business",
+      "icon": "icon_mac.png",
       "target": [
         {
           "target": "dmg",
-          "arch": ["x64", "arm64"]
-        },
-        {
-          "target": "zip",
           "arch": ["x64", "arm64"]
         }
       ],
       "hardenedRuntime": false,
       "gatekeeperAssess": false
-    },
-    "dmg": {
-      "contents": [
-        {
-          "x": 130,
-          "y": 220
-        },
-        {
-          "x": 410,
-          "y": 220,
-          "type": "link",
-          "path": "/Applications"
-        }
-      ]
-    },
-    "files": [
-      "**/*",
-      "!**/*.git*",
-      "!dist/*"
-    ],
-    "asarUnpack": [
-      "**/node_modules/better-sqlite3/**/*"
-    ]
+    }
   }
 }

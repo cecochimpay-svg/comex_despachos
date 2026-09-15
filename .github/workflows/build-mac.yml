@@ -23,8 +23,17 @@ jobs:
           npm install
           npm run postinstall
 
-      - name: Compilar archivo DMG
-        run: npx electron-builder --mac dmg --universal
+      - name: Generar icono Mac valido (512x512)
+        run: |
+          # Si existe logo.png, lo redimensionamos a 512x512 como icono para Mac
+          if [ -f "logo.png" ]; then
+            sips -z 512 512 logo.png --out icon_mac.png
+          else
+            sips -z 512 512 icono.ico --out icon_mac.png
+          fi
+
+      - name: Compilar archivo DMG Universal
+        run: npx electron-builder --mac dmg --universal -c.mac.icon=icon_mac.png
 
       - name: Subir binario como artefacto
         uses: actions/upload-artifact@v4
