@@ -1,0 +1,33 @@
+name: Compilar instalador Mac
+
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  build-macos:
+    runs-on: macos-14
+
+    steps:
+      - name: Clonar repositorio
+        uses: actions/checkout@v4
+
+      - name: Configurar Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Instalar dependencias y reconstruir binarios C++
+        run: |
+          npm install
+          npm run postinstall
+
+      - name: Compilar archivo DMG
+        run: npx electron-builder --mac dmg --universal
+
+      - name: Subir binario como artefacto
+        uses: actions/upload-artifact@v4
+        with:
+          name: COMEX-Instalador-Mac
+          path: dist/*.dmg

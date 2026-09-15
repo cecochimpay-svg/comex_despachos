@@ -6,6 +6,8 @@
   "scripts": {
     "start": "electron .",
     "build": "electron-builder --win",
+    "build:mac": "electron-builder --mac",
+    "build:all": "electron-builder -mw",
     "dist": "electron-builder --win",
     "postinstall": "electron-builder install-app-deps"
   },
@@ -26,7 +28,7 @@
     "electron-builder": "^25.1.8"
   },
   "build": {
-    "appId": "com.comex.app",
+    "appId": "com.ceco.comexdespachos",
     "productName": "COMEX",
     "icon": "icono.ico",
     "directories": {
@@ -45,8 +47,39 @@
       "installerIcon": "icono.ico",
       "uninstallerIcon": "icono.ico"
     },
+    "mac": {
+      "category": "public.app-category.business",
+      "target": [
+        {
+          "target": "dmg",
+          "arch": ["x64", "arm64"]
+        },
+        {
+          "target": "zip",
+          "arch": ["x64", "arm64"]
+        }
+      ],
+      "hardenedRuntime": false,
+      "gatekeeperAssess": false
+    },
+    "dmg": {
+      "contents": [
+        {
+          "x": 130,
+          "y": 220
+        },
+        {
+          "x": 410,
+          "y": 220,
+          "type": "link",
+          "path": "/Applications"
+        }
+      ]
+    },
     "files": [
-      "**/*"
+      "**/*",
+      "!**/*.git*",
+      "!dist/*"
     ],
     "asarUnpack": [
       "**/node_modules/better-sqlite3/**/*"
