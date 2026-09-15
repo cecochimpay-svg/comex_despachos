@@ -494,32 +494,80 @@
       if (tab === 'vuelos') renderizarPestana3Vuelos();
     }
 
+// ==============================================================
+    // MOTOR INDEXEDDB PARA WEB (SOPORTE ILIMITADO DE MB)
     // ==============================================================
-    // CARGA DE DATOS LOCAL Y ONLINE (EXCLUSIVO vista_pallet_despachados)
+    const DB_NAME = 'ComexWebDB';
+    const DB_STORE = 'despachos_cache';
+
+    function abrirIndexedDB() {
+      return new Promise((resolve, reject) => {
+        const req = indexedDB.open(DB_NAME, 1);
+        req.onupgradeneeded = (e) => {
+          const dbInstance = e.target.result;
+          if (!dbInstance.objectStoreNames.contains(DB_STORE)) {
+            dbInstance.createObjectStore(DB_STORE, { keyPath: 'id' });
+          }
+        };
+        req.onsuccess = () => resolve(req.result);
+        req.onerror = () => reject(req.error);
+      });
+    }
+
+    async function guardarEnIndexedDB(registros) {
+      try {
+        const dbInstance = await abrirIndexedDB();
+        const tx = dbInstance.transaction(DB_STORE, 'readwrite');
+        const store = tx.objectStore(DB_STORE);
+        store.put({ id: 'datos_completos', registros: registros, fecha_guardado: new Date().toISOString() });
+        return new Promise((resolve) => {
+          tx.oncomplete = () => resolve(true);
+          tx.onerror = () => resolve(false);
+        });
+      } catch (err) {
+        console.warn("No se pudo persistir en IndexedDB:", err);
+        return false;
+      }
+    }
+
+    async function leerDeIndexedDB() {
+      try {
+        const dbInstance = await abrirIndexedDB();
+        const tx = dbInstance.transaction(DB_STORE, 'readonly');
+        const store = tx.objectStore(DB_STORE);
+        const req = store.get('datos_completos');
+        return new Promise((resolve) => {
+          req.onsuccess = () => resolve(req.result ? req.result.registros : null);
+          req.onerror = () => resolve(null);
+        });
+      } catch (_) {
+        return null;
+      }
+    }
+
     // ==============================================================
-    // ==============================================================
-    // CARGA HÍBRIDA (OFFLINE ELECTRON / CACHE LOCAL WEB)
+    // CARGA HÍBRIDA (INDEXEDDB EN WEB / SQLITE EN DESKTOP)
     // ==============================================================
     async function cargarTodasLasTablas() {
-      // 1. Si estamos en Desktop (Electron)
+      // 1. Entorno Desktop (Electron)
       if (db) {
         try {
           listaDespachos = db.prepare('SELECT * FROM local_vista_pallet_despachados').all();
           listaPalletDetalle = db.prepare('SELECT * FROM local_pallet_detalle').all();
           listaCalibres = db.prepare('SELECT * FROM local_pallet_detalle_calibres').all();
-        } catch(e) { console.warn("Fallo lectura local:", e); }
+        } catch(e) {
+          console.warn("Fallo lectura local:", e);
+        }
       } 
-      // 2. Si estamos en la Web (Safari / Chrome): Leer de la caché del navegador
+      // 2. Entorno Web (Safari / Chrome)
       else {
-        try {
-          const cacheDespachos = localStorage.getItem('cache_vista_pallet_despachados');
-          if (cacheDespachos) {
-            listaDespachos = JSON.parse(cacheDespachos);
-          }
-        } catch(e) { console.warn("Error leyendo cache web:", e); }
+        const cacheWeb = await leerDeIndexedDB();
+        if (cacheWeb && Array.isArray(cacheWeb) && cacheWeb.length > 0) {
+          listaDespachos = cacheWeb;
+          console.log(`⚡ Recuperados ${listaDespachos.length.toLocaleString()} registros de IndexedDB.`);
+        }
       }
 
-      // Si no hay datos (primera vez que entra o vacía), sincronizamos
       if (listaDespachos.length === 0) {
         await sincronizar();
         return;
@@ -544,7 +592,7 @@
 
         lanzarToast("Descargando despachos...", "success");
 
-        // Rama A: Desktop Electron (SQLite/JSON)
+        // Rama Desktop
         if (db && servSinc && typeof servSinc.sincronizarDespachosCompleto === 'function') {
           const res = await servSinc.sincronizarDespachosCompleto((progreso) => {
             if (btn) btn.innerHTML = `<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/></svg> ${progreso}`;
@@ -553,11 +601,10 @@
           listaDespachos = db.prepare('SELECT * FROM local_vista_pallet_despachados').all();
           listaPalletDetalle = db.prepare('SELECT * FROM local_pallet_detalle').all();
           listaCalibres = db.prepare('SELECT * FROM local_pallet_detalle_calibres').all();
-
         } 
-        // Rama B: Entorno Web (Descarga paginada de TODOS los registros)
+        // Rama Web con paginación
         else {
-          console.log("🌐 Descargando la tabla completa desde Supabase en bloques de 1000...");
+          console.log("🌐 Descargando tabla completa desde Supabase en bloques de 1000...");
           let todosLosDespachos = [];
           let desde = 0;
           const paso = 1000;
@@ -590,12 +637,8 @@
 
           listaDespachos = todosLosDespachos;
 
-          // Guardar en la caché local del navegador para acceso instantáneo
-          try {
-            localStorage.setItem('cache_vista_pallet_despachados', JSON.stringify(listaDespachos));
-          } catch(errQuota) {
-            console.warn("Storage lleno o restringido en navegador:", errQuota);
-          }
+          // Guardar en IndexedDB sin restricciones de cuota
+          await guardarEnIndexedDB(listaDespachos);
         }
 
         lanzarToast(`Cargados ${listaDespachos.length.toLocaleString()} despachos.`);
