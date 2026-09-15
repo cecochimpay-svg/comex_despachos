@@ -1,0 +1,1460 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <script src="../motor_db.js"></script>
+  <link rel="icon" type="image/png" href="../logo.png">
+  <link rel="apple-touch-icon" href="../logo.png">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="CECO Despachos">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Control de Despachos · CECO S.A.</title>
+  <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&family=Montserrat:wght@600;700;800;900&display=swap" rel="stylesheet">
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js"></script>
+
+  <style>
+    :root {
+      --bg-light: #F4F6F4;
+      --card-color: #FFFFFF;
+      --input-fill: #F1F5F9;
+      --azul-francia: #0055A5;
+      --naranja-led: #F97316;
+      --text-primary: #0F172A;
+      --text-secondary: #556358;
+      --color-border: #D2D7D3;
+      --color-adm: #1E6B4C;
+      --color-adm-dark: #104630;
+      --color-adm-soft: rgba(30, 107, 76, 0.08);
+      --color-ok: #2E7D32;
+      --color-ok-soft: #E8F5E9;
+      --color-blue-soft: #EBF3FA;
+      --radius-lg: 16px;
+      --radius-md: 10px;
+      --radius-sm: 8px;
+      --font-family: 'Roboto', -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    * { box-sizing: border-box; }
+    html, body {
+      margin: 0; height: 100%;
+      font-family: var(--font-family);
+      background: var(--bg-light);
+      color: var(--text-primary);
+      display: flex; flex-direction: column;
+      overflow: hidden;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-thumb { background: #C4CCC6; border-radius: 20px; }
+    ::-webkit-scrollbar-thumb:hover { background: var(--color-adm); }
+
+    .top-system-bar {
+      display: flex; justify-content: space-between; align-items: center;
+      background: #FFFFFF; padding: 0 16px; height: 52px;
+      border-bottom: 1px solid var(--color-border); flex-shrink: 0; z-index: 30;
+    }
+    .user-access-info { display: flex; align-items: center; gap: 10px; font-size: 11.5px; font-weight: 700; color: var(--text-secondary); }
+    .user-access-info span.highlight { color: var(--color-adm); font-family: 'Montserrat'; font-weight: 800; }
+    .top-right-actions { display: flex; align-items: center; gap: 10px; }
+    .system-datetime { font-size: 11px; font-weight: 700; color: var(--text-secondary); text-transform: uppercase; }
+
+    .btn-sync-top {
+      background: var(--color-adm-soft); border: 1px solid rgba(30, 107, 76, 0.25);
+      color: var(--color-adm-dark); border-radius: 20px; padding: 6px 14px;
+      font-size: 11.5px; font-weight: 700; cursor: pointer; display: flex; align-items: center; gap: 6px;
+      transition: all 0.2s ease;
+    }
+    .btn-sync-top:hover { background: var(--color-adm); color: #FFF; }
+    .btn-sync-top.rotating svg { animation: girar 1s linear infinite; }
+    @keyframes girar { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+
+    .chrome-tabs-bar {
+      background: #E5E7EB; display: flex; gap: 4px; padding: 8px 16px 0;
+      border-bottom: 1px solid var(--color-border); flex-shrink: 0;
+    }
+    .chrome-tab-btn {
+      position: relative; background: #D1D5DB; color: #4B5563;
+      border: 1px solid #9CA3AF; border-bottom: none;
+      padding: 9px 18px; border-radius: 12px 12px 0 0;
+      font-size: 12px; font-weight: 800; cursor: pointer;
+      display: inline-flex; align-items: center; gap: 8px;
+      transition: all 0.15s ease; white-space: nowrap;
+    }
+    .chrome-tab-btn:hover { background: #E5E7EB; color: var(--text-primary); }
+    .chrome-tab-btn.active {
+      background: var(--bg-light); color: var(--color-adm-dark);
+      border-color: var(--color-border); border-top: 3px solid var(--color-adm);
+      margin-bottom: -1px; z-index: 2; box-shadow: 0 -2px 6px rgba(0, 0, 0, 0.04);
+    }
+
+    .main-workspace {
+      flex: 1; padding: 12px 16px; display: flex; flex-direction: column;
+      overflow: hidden; gap: 10px; max-width: 1600px; width: 100%; margin: 0 auto;
+    }
+
+    .grid-tab1-clientes { display: grid; grid-template-columns: 260px 1fr; gap: 12px; flex: 1; overflow: hidden; }
+    .grid-tab2-fechas { display: grid; grid-template-columns: 230px 1fr; gap: 12px; flex: 1; overflow: hidden; }
+
+    .panel-card {
+      background: #FFFFFF; border: 1.5px solid var(--color-border);
+      border-radius: var(--radius-lg); display: flex; flex-direction: column; overflow: hidden;
+    }
+    .panel-header-sub {
+      padding: 9px 14px; border-bottom: 1px solid var(--color-border); background: #FAFAF8;
+      display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; flex-shrink: 0;
+    }
+    .panel-header-title { font-family: 'Montserrat'; font-size: 11.5px; font-weight: 800; color: var(--color-adm-dark); text-transform: uppercase; }
+
+    .scroll-list { overflow-y: auto; padding: 8px; display: flex; flex-direction: column; gap: 6px; flex: 1; }
+
+    .item-card-row {
+      background: #F8FAFC; border: 1.2px solid var(--color-border); border-radius: var(--radius-md);
+      padding: 8px 12px; cursor: pointer; transition: all 0.15s ease;
+      display: flex; justify-content: space-between; align-items: center;
+    }
+    .item-card-row:hover { border-color: var(--color-adm); background: #FFFFFF; }
+    .item-card-row.active {
+      border-color: var(--color-adm); background: var(--color-adm-soft);
+      box-shadow: 0 2px 6px rgba(30, 107, 76, 0.12);
+    }
+    .card-txt-title { font-size: 11.5px; font-weight: 800; color: var(--color-adm-dark); font-family: 'Montserrat'; }
+    .card-txt-sub { font-size: 9.5px; font-weight: 600; color: var(--text-secondary); margin-top: 2px; }
+
+    .tabla-wrap { flex: 1; overflow: auto; }
+    .tabla-custom { width: 100%; border-collapse: collapse; font-size: 11.5px; white-space: nowrap; }
+    .tabla-custom th {
+      position: sticky; top: 0; background: #ECEFF1; border-bottom: 1px solid var(--color-border);
+      padding: 8px 10px; font-size: 10px; font-weight: 800; color: var(--text-secondary); text-transform: uppercase; text-align: left; z-index: 2;
+    }
+    .tabla-custom td { padding: 7px 10px; border-bottom: 1px solid var(--color-border); vertical-align: middle; }
+    .tabla-custom tr.clickable-row { cursor: pointer; transition: background 0.15s ease; }
+    .tabla-custom tr.clickable-row:hover td { background: var(--color-adm-soft); }
+    .tabla-custom tr.active td { background: #E0F2FE !important; font-weight: bold; }
+
+    .badge-pill { display: inline-block; padding: 2px 7px; border-radius: 12px; font-size: 9.5px; font-weight: 800; }
+    .badge-green { background: var(--color-ok-soft); color: var(--color-ok); }
+    .badge-blue { background: var(--color-blue-soft); color: var(--azul-francia); }
+    .badge-termo { background: #FEF3C7; color: #92400E; border: 1px solid #FCD34D; }
+
+    .btn-pdf-action {
+      background: #0055A5; color: #FFFFFF; border: none; border-radius: var(--radius-sm);
+      padding: 5px 10px; font-size: 11px; font-weight: 800; cursor: pointer;
+      display: inline-flex; align-items: center; gap: 5px; transition: all 0.2s;
+    }
+    .btn-pdf-action:hover { background: #003B73; }
+
+    .btn-remito-action {
+      background: #1E6B4C; color: #FFFFFF; border: none; border-radius: var(--radius-sm);
+      padding: 5px 10px; font-size: 11px; font-weight: 800; cursor: pointer;
+      display: inline-flex; align-items: center; gap: 5px; transition: all 0.2s;
+    }
+    .btn-remito-action:hover { background: #104630; }
+
+    .btn-detail-action {
+      background: #FFFFFF; border: 1px solid var(--color-border); border-radius: var(--radius-sm);
+      padding: 4px 8px; font-size: 10.5px; font-weight: 700; cursor: pointer;
+    }
+    .btn-detail-action:hover { border-color: var(--color-adm); color: var(--color-adm); }
+
+    .modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(15, 23, 42, 0.5); backdrop-filter: blur(4px); display: none; align-items: center; justify-content: center; z-index: 3000; padding: 14px; }
+    .modal-overlay.show { display: flex !important; }
+    .modal-box { background: #FFFFFF; border-radius: var(--radius-lg); padding: 22px; width: 100%; max-width: 820px; max-height: 90vh; display: flex; flex-direction: column; gap: 12px; border: 1px solid var(--color-border); box-shadow: 0 20px 40px rgba(0,0,0,0.18); }
+    .modal-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 10px; }
+    .modal-field { display: flex; flex-direction: column; gap: 3px; }
+    .modal-field label { font-size: 9.5px; font-weight: 800; text-transform: uppercase; color: var(--text-secondary); }
+    .modal-field-val { padding: 8px 10px; border-radius: var(--radius-sm); border: 1px solid var(--color-border); font-size: 11.5px; font-weight: 700; background: #F8FAFC; }
+
+    .toast-container { position: fixed; bottom: 20px; right: 20px; z-index: 4000; display: flex; flex-direction: column; gap: 8px; pointer-events: none; }
+    .toast-card { pointer-events: auto; background: #FFFFFF; border: 1px solid var(--color-border); border-radius: var(--radius-md); padding: 12px 18px; display: flex; align-items: center; gap: 10px; width: 320px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); font-size: 12px; font-weight: 700; }
+    .toast-card.success { border-left: 4px solid var(--color-ok); color: var(--color-ok); }
+    .toast-card.error { border-left: 4px solid #EF4444; color: #EF4444; }
+
+    .grid-vuelos { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 12px; overflow-y: auto; padding: 4px; }
+    .card-vuelo { background: #FFFFFF; border: 1.5px solid var(--color-border); border-radius: var(--radius-md); padding: 14px; display: flex; flex-direction: column; gap: 8px; }
+    .card-vuelo-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--color-border); padding-bottom: 6px; }
+  </style>
+</head>
+<body>
+
+  <div class="toast-container" id="toastContenedor"></div>
+
+  <header class="top-system-bar">
+    <div class="user-access-info">
+      <img src="../logo.png" alt="Logo" style="height:28px; object-fit:contain;" onerror="this.style.display='none'">
+      <span>SISTEMA COMEX · <span class="highlight">CECO S.A.</span></span>
+    </div>
+    <div class="top-right-actions">
+      <div class="system-datetime" id="topDateTime">LUNES 20 DE JULIO DE 2026</div>
+      <button class="btn-sync-top" id="btnSync" onclick="sincronizar()" title="Sincronizar Supabase">
+        <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/></svg>
+        Sincronizar
+      </button>
+    </div>
+  </header>
+
+  <nav class="chrome-tabs-bar">
+    <button class="chrome-tab-btn active" id="btnTab1" onclick="cambiarPestanaChrome('clientes', this)">
+      🏢 Pestaña 1: Archivero por Cliente
+    </button>
+    <button class="chrome-tab-btn" id="btnTab2" onclick="cambiarPestanaChrome('fechas', this)">
+      📅 Pestaña 2: Archivero por Fecha
+    </button>
+    <button class="chrome-tab-btn" id="btnTab3" onclick="cambiarPestanaChrome('vuelos', this)">
+      ✈️ Pestaña 3: Monitor de Vuelos
+    </button>
+  </nav>
+
+  <main class="main-workspace">
+
+    <!-- PESTAÑA 1 -->
+    <div class="grid-tab1-clientes" id="secTabClientes">
+      <div class="panel-card">
+        <div class="panel-header-sub">
+          <span class="panel-header-title">Clientes</span>
+          <span class="badge-pill badge-green" id="badgeTotalClientes">0</span>
+        </div>
+        <div class="scroll-list" id="contListaClientesP1">
+          <div style="padding:10px; font-size:11px; color:var(--text-secondary);">Cargando clientes...</div>
+        </div>
+      </div>
+
+      <div style="display:flex; flex-direction:column; gap:10px; overflow:hidden; flex:1;">
+        <div class="panel-card" style="height: 45%;">
+          <div class="panel-header-sub">
+            <span class="panel-header-title" id="lblTituloRemitosP1">Remitos del Cliente</span>
+            <span style="font-size:10.5px; color:var(--text-secondary);">Hacé clic en un remito para ver el desglose de pallets abajo</span>
+          </div>
+          <div class="tabla-wrap">
+            <table class="tabla-custom">
+              <thead>
+                <tr>
+                  <th>REMITO</th>
+                  <th>FECHA</th>
+                  <th>VUELO</th>
+                  <th>DESTINO</th>
+                  <th>CANT. PALLETS</th>
+                  <th>KILOS</th>
+                  <th style="text-align:center;">ACCIONES</th>
+                </tr>
+              </thead>
+              <tbody id="tbodyRemitosP1">
+                <tr><td colspan="7" style="text-align:center; padding:30px; color:var(--text-secondary);">Seleccioná un cliente.</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="panel-card" style="flex:1;">
+          <div class="panel-header-sub">
+            <span class="panel-header-title" id="lblTituloDetalleRemitoP1">Desglose de Pallets y Romaneos</span>
+            <span style="font-size:11px; font-weight:800; color:var(--color-adm);" id="lblTotalesDetalleP1">—</span>
+          </div>
+          <div class="tabla-wrap">
+            <table class="tabla-custom">
+              <thead>
+                <tr>
+                  <th>N° PALLET</th>
+                  <th>ROMANEO</th>
+                  <th>VARIEDAD</th>
+                  <th>CALIBRES / CAJAS</th>
+                  <th>TOTAL CAJAS</th>
+                  <th>TERMÓGRAFO</th>
+                  <th style="text-align:center;">DETALLE</th>
+                </tr>
+              </thead>
+              <tbody id="tbodyDetallePalletsRemitoP1">
+                <tr><td colspan="7" style="text-align:center; padding:30px; color:var(--text-secondary);">Tocá un remito arriba para ver el desglose.</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- PESTAÑA 2 -->
+    <div class="grid-tab2-fechas" id="secTabFechas" style="display:none;">
+      <div class="panel-card">
+        <div class="panel-header-sub">
+          <span class="panel-header-title">Fechas</span>
+          <span class="badge-pill badge-blue" id="badgeTotalFechas">0</span>
+        </div>
+        <div class="scroll-list" id="contListaFechasP2">
+          <div style="padding:10px; font-size:11px; color:var(--text-secondary);">Cargando fechas...</div>
+        </div>
+      </div>
+
+      <div style="display:flex; flex-direction:column; gap:10px; overflow:hidden; flex:1;">
+        <div class="panel-card" style="height: 38%; min-height: 160px;">
+          <div class="panel-header-sub">
+            <span class="panel-header-title" id="lblTituloClientesFechaP2">Clientes de la Fecha</span>
+            <span style="font-size:10.5px; color:var(--text-secondary);">Tocá un cliente para desglosar sus pallets abajo</span>
+          </div>
+          <div class="tabla-wrap">
+            <table class="tabla-custom">
+              <thead>
+                <tr>
+                  <th>CLIENTE</th>
+                  <th>CANT. REMITOS</th>
+                  <th>TOTAL PALLETS</th>
+                  <th>ENVASE</th>
+                  <th style="text-align:center;">ACCIONES</th>
+                </tr>
+              </thead>
+              <tbody id="tbodyClientesFechaP2">
+                <tr><td colspan="5" style="text-align:center; padding:20px; color:var(--text-secondary);">Seleccioná una fecha.</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="panel-card" style="flex:1;">
+          <div class="panel-header-sub">
+            <span class="panel-header-title" id="lblTituloDetalleRemitosClienteP2">Detalle de Pallets por Remito</span>
+            <span style="font-size:11px; font-weight:800; color:var(--color-adm);" id="lblTotalesClienteSeleccionadoP2">—</span>
+          </div>
+          <div class="tabla-wrap">
+            <table class="tabla-custom">
+              <thead>
+                <tr>
+                  <th>REMITO</th>
+                  <th>VUELO</th>
+                  <th>DESTINO</th>
+                  <th>N° PALLET</th>
+                  <th>ROMANEO</th>
+                  <th>VARIEDAD</th>
+                  <th>CALIBRE(S) / CANT</th>
+                  <th>TOTAL CAJAS</th>
+                  <th>TERMÓGRAFO</th>
+                  <th style="text-align:center;">FICHA</th>
+                </tr>
+              </thead>
+              <tbody id="tbodyDetalleRemitosClienteP2">
+                <tr><td colspan="10" style="text-align:center; padding:30px; color:var(--text-secondary);">Seleccioná un cliente arriba para ver sus pallets.</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- PESTAÑA 3 -->
+    <div id="secTabVuelos" style="display:none; flex:1; overflow:hidden; flex-direction:column; gap:10px;">
+      <div class="panel-header-sub" style="background:#FFFFFF; border-radius:var(--radius-md); border:1.5px solid var(--color-border);">
+        <span class="panel-header-title">Vuelos Programados COMEX</span>
+        <span style="font-size:11px; color:var(--text-secondary);" id="lblResumenVuelos">Cargando vuelos...</span>
+      </div>
+      <div class="grid-vuelos" id="contGridVuelos"></div>
+    </div>
+
+  </main>
+
+  <!-- MODAL FICHA TÉCNICA -->
+  <div class="modal-overlay" id="modalFichaTecnica">
+    <div class="modal-box">
+      <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--color-border); padding-bottom:8px;">
+        <div>
+          <h3 style="margin:0; font-family:'Montserrat'; font-size:15px; color:var(--azul-francia);" id="modalTituloRemito">Remito: —</h3>
+          <span style="font-size:11px; color:var(--text-secondary);" id="modalSubtituloDespacho">Ficha técnica detallada del pallet</span>
+        </div>
+        <button type="button" onclick="cerrarFichaModal()" style="background:#F1F5F9; border:none; border-radius:50%; width:28px; height:28px; cursor:pointer; font-weight:800;">✕</button>
+      </div>
+
+      <div style="overflow-y:auto; flex:1; display:flex; flex-direction:column; gap:10px; padding-right:4px;">
+        <div class="modal-grid">
+          <div class="modal-field"><label>Cliente</label><div class="modal-field-val" id="detCliente">-</div></div>
+          <div class="modal-field"><label>Marca</label><div class="modal-field-val" id="detMarca">-</div></div>
+          <div class="modal-field"><label>Variedad / Especie</label><div class="modal-field-val" id="detVariedadEspecie">-</div></div>
+          <div class="modal-field"><label>N° Pallet Despacho</label><div class="modal-field-val" id="detPalletDespacho" style="color:var(--azul-francia); font-weight:900;">-</div></div>
+        </div>
+
+        <div class="modal-grid">
+          <div class="modal-field"><label>Desglose de Calibres</label><div class="modal-field-val" id="detCalibresSumados" style="color:var(--color-adm); font-weight:900;">-</div></div>
+          <div class="modal-field"><label>Cantidad Total Cajas</label><div class="modal-field-val" id="detCantidad">-</div></div>
+          <div class="modal-field"><label>Kilos Netos</label><div class="modal-field-val" id="detKilos">-</div></div>
+          <div class="modal-field"><label>Pallet Termógrafo</label><div class="modal-field-val" id="detTermografo" style="color:var(--naranja-led); font-weight:900;">-</div></div>
+        </div>
+
+        <div class="modal-grid">
+          <div class="modal-field"><label>Vuelo (Manifiesto)</label><div class="modal-field-val" id="detVuelo">-</div></div>
+          <div class="modal-field"><label>Destino (Guía)</label><div class="modal-field-val" id="detDestino">-</div></div>
+          <div class="modal-field"><label>Guía Origen</label><div class="modal-field-val" id="detGuiaOrigen">-</div></div>
+          <div class="modal-field"><label>Romaneo</label><div class="modal-field-val" id="detRomaneo">-</div></div>
+        </div>
+      </div>
+
+      <div style="display:flex; justify-content:space-between; align-items:center; border-top:1px solid var(--color-border); padding-top:10px;">
+        <button type="button" class="btn-remito-action" id="btnModalImprimirRemito">📄 Imprimir Remito</button>
+        <button type="button" class="btn-sync-top" style="background:#64748B; color:#FFF;" onclick="cerrarFichaModal()">Cerrar</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const SUPABASE_URL = 'https://veqpyhifwubcdxocckmf.supabase.co';
+    const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZlcXB5aGlmd3ViY2R4b2Nja21mIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU4NzI5NzAsImV4cCI6MjA5MTQ0ODk3MH0.mIRsPLLoHn9jQtvCCwxG3aNFWtXIdcV12kLTC_MqybY';
+    const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+    const isElectron = typeof require === 'function';
+    let db = null;
+    let servSinc = null;
+
+    let listaDespachos = [];
+    let listaPalletDetalle = [];
+    let listaCalibres = [];
+    let clienteSeleccionadoP1 = null;
+    let remitoSeleccionadoP1 = null;
+    let fechaSeleccionadaP2 = null;
+    let clienteSeleccionadoP2 = null;
+    let logoBase64Cache = null;
+
+    if (isElectron) {
+      try {
+        db = require('../base/base.js').db;
+        servSinc = require('../servicios/sincronizacion.js');
+      } catch(e) {
+        console.warn('⚠️ [ELECTRON]: Fallo cargando base.js local:', e.message);
+      }
+    }
+
+    function normalizarFecha(f) {
+      if (!f) return 'SIN-FECHA';
+      if (typeof f === 'string') return f.split('T')[0];
+      try {
+        const d = new Date(f);
+        if (!isNaN(d.getTime())) return d.toISOString().split('T')[0];
+      } catch(_) {}
+      return String(f);
+    }
+
+    function formatearFechaVisual(fStr) {
+      if (!fStr || fStr === 'SIN-FECHA') return 'Sin Fecha';
+      if (fStr.includes('-')) {
+        const p = fStr.split('-');
+        if (p.length === 3) return `${p[2]}/${p[1]}/${p[0]}`;
+      }
+      return fStr;
+    }
+
+    function normalizarCalibre(calibreRaw) {
+      if (!calibreRaw && calibreRaw !== 0) return '';
+      const raw = String(calibreRaw).trim().toUpperCase();
+      if (raw.endsWith('+') || raw.includes('+')) return raw;
+      if (raw.includes('-')) return raw.replace(/\s+/g, '');
+      const num = parseInt(raw, 10);
+      if (!isNaN(num)) return `${num}-${num + 2}`;
+      return raw || '';
+    }
+
+    function lanzarToast(msj, tipo = 'success') {
+      const card = document.createElement('div');
+      card.className = `toast-card ${tipo}`;
+      card.innerHTML = `<div>${tipo === 'success' ? '✅' : '❌'}</div><div>${msj}</div>`;
+      document.getElementById('toastContenedor').appendChild(card);
+      setTimeout(() => card.remove(), 3500);
+    }
+
+    document.addEventListener('DOMContentLoaded', async () => {
+      document.getElementById('topDateTime').textContent = new Date().toLocaleDateString('es-AR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }).toUpperCase();
+      precargarLogoBase64();
+      await cargarTodasLasTablas();
+    });
+
+    function precargarLogoBase64() {
+      const img = new Image();
+      img.crossOrigin = 'Anonymous';
+      img.src = '../logo.png';
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        canvas.width = img.naturalWidth;
+        canvas.height = img.naturalHeight;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0);
+        logoBase64Cache = canvas.toDataURL('image/png');
+      };
+    }
+
+    function cambiarPestanaChrome(tab, btn) {
+      document.querySelectorAll('.chrome-tab-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+
+      document.getElementById('secTabClientes').style.display = tab === 'clientes' ? 'grid' : 'none';
+      document.getElementById('secTabFechas').style.display = tab === 'fechas' ? 'grid' : 'none';
+      document.getElementById('secTabVuelos').style.display = tab === 'vuelos' ? 'flex' : 'none';
+
+      if (tab === 'clientes') renderizarPestana1Clientes();
+      if (tab === 'fechas') renderizarPestana2Fechas();
+      if (tab === 'vuelos') renderizarPestana3Vuelos();
+    }
+
+    // ==============================================================
+    // CARGA DE DATOS LOCAL Y ONLINE (EXCLUSIVO vista_pallet_despachados)
+    // ==============================================================
+    async function cargarTodasLasTablas() {
+      if (db) {
+        try {
+          listaDespachos = db.prepare('SELECT * FROM local_vista_pallet_despachados').all();
+          listaPalletDetalle = db.prepare('SELECT * FROM local_pallet_detalle').all();
+          listaCalibres = db.prepare('SELECT * FROM local_pallet_detalle_calibres').all();
+        } catch(e) { console.warn(e); }
+      }
+
+      if (listaDespachos.length === 0 && navigator.onLine) {
+        await sincronizar();
+        return;
+      }
+
+      renderizarPestana1Clientes();
+      renderizarPestana2Fechas();
+    }
+
+    async function sincronizar() {
+      const btn = document.getElementById('btnSync');
+      btn.classList.add('rotating');
+      btn.disabled = true;
+
+      try {
+        if (!navigator.onLine) {
+          lanzarToast("Sin conexión a Internet.", "error");
+          return;
+        }
+
+        lanzarToast("Sincronizando tabla maestra...", "success");
+
+        if (servSinc && typeof servSinc.sincronizarDespachosCompleto === 'function') {
+          const res = await servSinc.sincronizarDespachosCompleto((progreso) => {
+            btn.innerHTML = `<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/></svg> ${progreso}`;
+          });
+          lanzarToast(`Sincronizado: ${res.despachos || 0} despachos, ${res.detalles || 0} pallets, ${res.calibres || 0} calibres.`);
+        }
+
+        listaDespachos = db.prepare('SELECT * FROM local_vista_pallet_despachados').all();
+        listaPalletDetalle = db.prepare('SELECT * FROM local_pallet_detalle').all();
+        listaCalibres = db.prepare('SELECT * FROM local_pallet_detalle_calibres').all();
+
+        renderizarPestana1Clientes();
+        renderizarPestana2Fechas();
+      } catch (e) {
+        console.error(e);
+        lanzarToast("Error: " + (e.message || e), 'error');
+      } finally {
+        btn.classList.remove('rotating');
+        btn.disabled = false;
+        btn.innerHTML = `<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/></svg> Sincronizar`;
+      }
+    }
+
+    // ==============================================================
+    // MOTOR RELACIONAL EXACTO
+    // ==============================================================
+    function obtenerPalletsAgrupadosDeDespacho(despachoRow) {
+      const idReg = Number(despachoRow.id_reg_despacho);
+
+      let detalles = listaPalletDetalle.filter(pd => Number(pd.reg_despacho) === idReg);
+
+      if (detalles.length === 0 && despachoRow.id_detalle_pallet) {
+        detalles = listaPalletDetalle.filter(pd => Number(pd.id_detalle_pallet) === Number(despachoRow.id_detalle_pallet));
+      }
+
+      const gruposPallet = {};
+
+      detalles.forEach(det => {
+        const nroPalletDesp = det.numero_pallet_despacho 
+          ? String(det.numero_pallet_despacho).trim()
+          : (despachoRow.pallet_integrado || despachoRow.numero_romaneo_interno || 'S/P');
+
+        if (!gruposPallet[nroPalletDesp]) {
+          gruposPallet[nroPalletDesp] = {
+            nro_pallet_despacho: nroPalletDesp,
+            idsDetalle: new Set(),
+            romaneos: new Set(),
+            calibresMap: {},
+            totalCajas: 0
+          };
+        }
+
+        if (det.id_detalle_pallet) gruposPallet[nroPalletDesp].idsDetalle.add(Number(det.id_detalle_pallet));
+        if (det.numero_romaneo_interno) gruposPallet[nroPalletDesp].romaneos.add(det.numero_romaneo_interno);
+      });
+
+      Object.keys(gruposPallet).forEach(pKey => {
+        const obj = gruposPallet[pKey];
+        const idsArr = Array.from(obj.idsDetalle);
+
+        const calibresHijos = listaCalibres.filter(c => idsArr.includes(Number(c.id_detalle_pallet)));
+
+        calibresHijos.forEach(cRow => {
+          const cal = normalizarCalibre(cRow.calibre || '').toString().trim();
+          const cant = Math.abs(Number(cRow.cantidad || 0));
+          obj.calibresMap[cal] = (obj.calibresMap[cal] || 0) + cant;
+          obj.totalCajas += cant;
+        });
+
+        if (obj.totalCajas === 0) {
+          const calDir = normalizarCalibre(despachoRow.calibre || '').toString().trim();
+          const cantDir = Math.abs(Number(despachoRow.cantidad || 0));
+          obj.calibresMap[calDir] = cantDir;
+          obj.totalCajas = cantDir;
+        }
+      });
+
+      if (Object.keys(gruposPallet).length === 0) {
+        const pKey = despachoRow.pallet_integrado 
+          ? String(despachoRow.pallet_integrado).trim()
+          : (despachoRow.numero_romaneo_interno || 'S/P');
+        const calDir = normalizarCalibre(despachoRow.calibre || '').toString().trim();
+        const cantDir = Math.abs(Number(despachoRow.cantidad || 0));
+
+        gruposPallet[pKey] = {
+          nro_pallet_despacho: pKey,
+          idsDetalle: new Set([Number(despachoRow.id_detalle_pallet)]),
+          romaneos: new Set([despachoRow.numero_romaneo_interno]),
+          calibresMap: { [calDir]: cantDir },
+          totalCajas: cantDir
+        };
+      }
+
+      return Object.values(gruposPallet);
+    }
+
+    // ==============================================================
+    // PESTAÑA 1: ARCHIVERO POR CLIENTE
+    // ==============================================================
+    function renderizarPestana1Clientes() {
+      const cont = document.getElementById('contListaClientesP1');
+      const grupos = {};
+
+      listaDespachos.forEach(d => {
+        const cli = (d.cliente || 'SIN CLIENTE').toUpperCase().trim();
+        if (!grupos[cli]) grupos[cli] = { nombre: cli, remitosSet: new Set(), pallets: 0 };
+        if (d.nro_remito_embarque) grupos[cli].remitosSet.add(d.nro_remito_embarque);
+        grupos[cli].pallets += 1;
+      });
+
+      const clientesArr = Object.values(grupos).sort((a, b) => a.nombre.localeCompare(b.nombre));
+      document.getElementById('badgeTotalClientes').innerText = clientesArr.length;
+
+      if (clientesArr.length === 0) {
+        cont.innerHTML = '<div style="padding:10px; font-size:11px; color:var(--text-secondary);">Sin despachos.</div>';
+        document.getElementById('tbodyRemitosP1').innerHTML = '<tr><td colspan="7" style="text-align:center; padding:30px;">No hay registros cargados.</td></tr>';
+        return;
+      }
+
+      if (!clienteSeleccionadoP1 || !grupos[clienteSeleccionadoP1]) {
+        clienteSeleccionadoP1 = clientesArr[0].nombre;
+      }
+
+      cont.innerHTML = clientesArr.map(c => `
+        <div class="item-card-row ${c.nombre === clienteSeleccionadoP1 ? 'active' : ''}" onclick="seleccionarClienteP1('${c.nombre}', this)">
+          <div>
+            <div class="card-txt-title">${c.nombre}</div>
+            <div class="card-txt-sub">${c.remitosSet.size} remito(s) · ${c.pallets} pallets</div>
+          </div>
+          <span class="badge-pill badge-green">${c.remitosSet.size}</span>
+        </div>
+      `).join('');
+
+      renderizarTablaRemitosP1();
+    }
+
+    function seleccionarClienteP1(nombreCli, elem) {
+      clienteSeleccionadoP1 = nombreCli;
+      document.querySelectorAll('#contListaClientesP1 .item-card-row').forEach(el => el.classList.remove('active'));
+      if (elem) elem.classList.add('active');
+      remitoSeleccionadoP1 = null;
+      renderizarTablaRemitosP1();
+    }
+
+    function renderizarTablaRemitosP1() {
+      const tbody = document.getElementById('tbodyRemitosP1');
+      document.getElementById('lblTituloRemitosP1').innerText = `Remitos de: ${clienteSeleccionadoP1}`;
+
+      const registrosCli = listaDespachos.filter(
+        d => (d.cliente || 'SIN CLIENTE').toUpperCase().trim() === clienteSeleccionadoP1
+      );
+
+      const porRemito = {};
+      registrosCli.forEach(d => {
+        const rem = d.nro_remito_embarque || 'S/R';
+        if (!porRemito[rem]) {
+          porRemito[rem] = {
+            remito: rem,
+            fecha: d.fecha_salida,
+            vuelo: d.nro_manifiesto_carga,
+            destino: d.nro_guia_frutihorticola,
+            palletsCount: 0,
+            kilos: 0,
+            items: []
+          };
+        }
+        porRemito[rem].palletsCount += 1;
+        porRemito[rem].kilos += Math.abs(Number(d.kg || 0));
+        porRemito[rem].items.push(d);
+      });
+
+      const remitosArr = Object.values(porRemito);
+
+      if (remitosArr.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; padding:30px; color:var(--text-secondary);">Sin remitos registrados.</td></tr>';
+        document.getElementById('tbodyDetallePalletsRemitoP1').innerHTML = '<tr><td colspan="7" style="text-align:center; padding:20px;">Sin datos.</td></tr>';
+        return;
+      }
+
+      if (!remitoSeleccionadoP1 || !porRemito[remitoSeleccionadoP1]) {
+        remitoSeleccionadoP1 = remitosArr[0].remito;
+      }
+
+      tbody.innerHTML = remitosArr.map(r => `
+        <tr class="clickable-row ${r.remito === remitoSeleccionadoP1 ? 'active' : ''}" onclick="seleccionarRemitoP1('${r.remito}')">
+          <td><b>${r.remito}</b></td>
+          <td>${formatearFechaVisual(normalizarFecha(r.fecha))}</td>
+          <td><b>${r.vuelo || '-'}</b></td>
+          <td><span class="badge-pill badge-blue">${r.destino || '-'}</span></td>
+          <td><b>${r.palletsCount} pallets</b></td>
+          <td>${Math.round(r.kilos).toLocaleString()} kg</td>
+          <td style="text-align:center;" onclick="event.stopPropagation();">
+            <button class="btn-pdf-action" onclick="exportarPackingConsolidado('${clienteSeleccionadoP1}', '${normalizarFecha(r.fecha)}')">
+              📦 Packing
+            </button>
+            <button class="btn-remito-action" onclick="imprimirRemitoOficial('${r.remito}')">
+              📄 Remito
+            </button>
+          </td>
+        </tr>
+      `).join('');
+
+      renderizarDetallePalletsRemitoP1();
+    }
+
+    function seleccionarRemitoP1(remitoNum) {
+      remitoSeleccionadoP1 = remitoNum;
+      renderizarTablaRemitosP1();
+    }
+
+    function renderizarDetallePalletsRemitoP1() {
+      const tbody = document.getElementById('tbodyDetallePalletsRemitoP1');
+      const registros = listaDespachos.filter(d => 
+        (d.cliente || 'SIN CLIENTE').toUpperCase().trim() === clienteSeleccionadoP1 &&
+        (d.nro_remito_embarque || 'S/R') === remitoSeleccionadoP1
+      );
+
+      document.getElementById('lblTituloDetalleRemitoP1').innerText = `Pallets del Remito: ${remitoSeleccionadoP1}`;
+
+      if (registros.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; padding:20px;">Sin pallets.</td></tr>';
+        document.getElementById('lblTotalesDetalleP1').innerText = '—';
+        return;
+      }
+
+      let totalCajas = 0;
+      const htmlFilas = [];
+
+      registros.forEach(d => {
+        const palletsDesg = obtenerPalletsAgrupadosDeDespacho(d);
+        const termo = (d.pallet_termografo && String(d.pallet_termografo).trim() !== '0') ? String(d.pallet_termografo).trim() : '0';
+
+        palletsDesg.forEach(p => {
+          totalCajas += p.totalCajas;
+          const calibresTxt = Object.keys(p.calibresMap).map(cal => `${cal}: <b>${p.calibresMap[cal]}</b>`).join(' | ');
+          const romaneosTxt = Array.from(p.romaneos).join(', ') || '-';
+
+          htmlFilas.push(`
+            <tr class="clickable-row" onclick='abrirFichaTecnicaModal(${JSON.stringify(d)}, "${p.nro_pallet_despacho}")'>
+              <td><b style="color:var(--azul-francia); font-size:12px;">${p.nro_pallet_despacho}</b></td>
+              <td>${romaneosTxt}</td>
+              <td>${d.variedad || 'LAPINS'}</td>
+              <td>${calibresTxt}</td>
+              <td><b style="color:var(--color-adm); font-size:12px;">${p.totalCajas.toLocaleString()}</b></td>
+              <td><span class="${termo !== '0' ? 'badge-termo' : 'badge-pill'}">${termo}</span></td>
+              <td style="text-align:center;">
+                <button class="btn-detail-action" onclick='abrirFichaTecnicaModal(${JSON.stringify(d)}, "${p.nro_pallet_despacho}")'>
+                  👁️ Ficha
+                </button>
+              </td>
+            </tr>
+          `);
+        });
+      });
+
+      tbody.innerHTML = htmlFilas.join('');
+      document.getElementById('lblTotalesDetalleP1').innerText = `${registros.length} Pallets · ${totalCajas.toLocaleString()} Cajas`;
+    }
+
+    // ==============================================================
+    // PESTAÑA 2: ARCHIVERO POR FECHA
+    // ==============================================================
+    function renderizarPestana2Fechas() {
+      const cont = document.getElementById('contListaFechasP2');
+      const gruposFechas = {};
+
+      listaDespachos.forEach(d => {
+        const fStr = normalizarFecha(d.fecha_salida);
+        if (!gruposFechas[fStr]) {
+          gruposFechas[fStr] = { fecha: fStr, clientesSet: new Set(), remitosSet: new Set(), pallets: 0 };
+        }
+        if (d.cliente) gruposFechas[fStr].clientesSet.add(d.cliente.toUpperCase().trim());
+        if (d.nro_remito_embarque) gruposFechas[fStr].remitosSet.add(d.nro_remito_embarque);
+        gruposFechas[fStr].pallets += 1;
+      });
+
+      const fechasArr = Object.values(gruposFechas).sort((a, b) => b.fecha.localeCompare(a.fecha));
+      document.getElementById('badgeTotalFechas').innerText = fechasArr.length;
+
+      if (fechasArr.length === 0) {
+        cont.innerHTML = '<div style="padding:10px; font-size:11px; color:var(--text-secondary);">Sin fechas.</div>';
+        document.getElementById('tbodyClientesFechaP2').innerHTML = '<tr><td colspan="5" style="text-align:center; padding:20px;">Sin registros.</td></tr>';
+        document.getElementById('tbodyDetalleRemitosClienteP2').innerHTML = '<tr><td colspan="10" style="text-align:center; padding:20px;">Sin registros.</td></tr>';
+        return;
+      }
+
+      if (!fechaSeleccionadaP2 || !gruposFechas[fechaSeleccionadaP2]) {
+        fechaSeleccionadaP2 = fechasArr[0].fecha;
+      }
+
+      cont.innerHTML = fechasArr.map(fObj => `
+        <div class="item-card-row ${fObj.fecha === fechaSeleccionadaP2 ? 'active' : ''}" onclick="seleccionarFechaP2('${fObj.fecha}', this)">
+          <div>
+            <div class="card-txt-title">📅 ${formatearFechaVisual(fObj.fecha)}</div>
+            <div class="card-txt-sub">${fObj.clientesSet.size} cliente(s) · ${fObj.remitosSet.size} remitos</div>
+          </div>
+          <span class="badge-pill badge-blue">${fObj.pallets} p</span>
+        </div>
+      `).join('');
+
+      renderizarTablaClientesFechaP2();
+    }
+
+    function seleccionarFechaP2(fStr, elem) {
+      fechaSeleccionadaP2 = fStr;
+      document.querySelectorAll('#contListaFechasP2 .item-card-row').forEach(el => el.classList.remove('active'));
+      if (elem) elem.classList.add('active');
+      clienteSeleccionadoP2 = null;
+      renderizarTablaClientesFechaP2();
+    }
+
+    function renderizarTablaClientesFechaP2() {
+      const tbody = document.getElementById('tbodyClientesFechaP2');
+      document.getElementById('lblTituloClientesFechaP2').innerText = `Clientes del Día: ${formatearFechaVisual(fechaSeleccionadaP2)}`;
+
+      const despachosFecha = listaDespachos.filter(d => normalizarFecha(d.fecha_salida) === fechaSeleccionadaP2);
+      const gruposCli = {};
+
+      despachosFecha.forEach(d => {
+        const c = (d.cliente || 'SIN CLIENTE').toUpperCase().trim();
+        if (!gruposCli[c]) {
+          gruposCli[c] = { cliente: c, remitosSet: new Set(), pallets: 0, envasesSet: new Set() };
+        }
+        if (d.nro_remito_embarque) gruposCli[c].remitosSet.add(d.nro_remito_embarque);
+        gruposCli[c].pallets += 1;
+        if (d.envase) gruposCli[c].envasesSet.add(d.envase.trim());
+      });
+
+      const clientesArr = Object.values(gruposCli).sort((a, b) => a.cliente.localeCompare(b.cliente));
+
+      if (clientesArr.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; padding:20px; color:var(--text-secondary);">No hay clientes registrados en esta fecha.</td></tr>';
+        document.getElementById('tbodyDetalleRemitosClienteP2').innerHTML = '<tr><td colspan="10" style="text-align:center; padding:20px;">Sin remitos.</td></tr>';
+        return;
+      }
+
+      if (!clienteSeleccionadoP2 || !gruposCli[clienteSeleccionadoP2]) {
+        clienteSeleccionadoP2 = clientesArr[0].cliente;
+      }
+
+      tbody.innerHTML = clientesArr.map(c => {
+        const envasesTexto = Array.from(c.envasesSet).join(', ') || 'Cja 2.5 k';
+
+        return `
+          <tr class="clickable-row ${c.cliente === clienteSeleccionadoP2 ? 'active' : ''}" onclick="seleccionarClienteTablaP2('${c.cliente}')">
+            <td><b>${c.cliente}</b></td>
+            <td>${c.remitosSet.size} remitos</td>
+            <td><b>${c.pallets.toLocaleString()} pallets</b></td>
+            <td>${envasesTexto}</td>
+            <td style="text-align:center;" onclick="event.stopPropagation();">
+              <button class="btn-pdf-action" onclick="exportarPackingConsolidado('${c.cliente}', '${fechaSeleccionadaP2}')">
+                📑 Exportar Packing Fecha
+              </button>
+            </td>
+          </tr>
+        `;
+      }).join('');
+
+      renderizarDetalleRemitosClienteP2();
+    }
+
+    function seleccionarClienteTablaP2(cliNombre) {
+      clienteSeleccionadoP2 = cliNombre;
+      renderizarTablaClientesFechaP2();
+    }
+
+    function renderizarDetalleRemitosClienteP2() {
+      const tbody = document.getElementById('tbodyDetalleRemitosClienteP2');
+      const registros = listaDespachos.filter(d => 
+        normalizarFecha(d.fecha_salida) === fechaSeleccionadaP2 &&
+        (d.cliente || 'SIN CLIENTE').toUpperCase().trim() === clienteSeleccionadoP2
+      );
+
+      document.getElementById('lblTituloDetalleRemitosClienteP2').innerText = `Pallets de ${clienteSeleccionadoP2} (${formatearFechaVisual(fechaSeleccionadaP2)})`;
+      
+      if (registros.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="10" style="text-align:center; padding:30px; color:var(--text-secondary);">No hay despachos cargados.</td></tr>';
+        document.getElementById('lblTotalesClienteSeleccionadoP2').innerText = '0 Pallets · 0 Cajas';
+        return;
+      }
+
+      let totalCajas = 0;
+      const htmlFilas = [];
+
+      registros.forEach(d => {
+        const palletsDesg = obtenerPalletsAgrupadosDeDespacho(d);
+        const termo = (d.pallet_termografo && String(d.pallet_termografo).trim() !== '0') ? String(d.pallet_termografo).trim() : '0';
+
+        palletsDesg.forEach(p => {
+          totalCajas += p.totalCajas;
+          const calibresTxt = Object.keys(p.calibresMap).map(cal => `${cal}: <b>${p.calibresMap[cal]}</b>`).join(' | ');
+          const romaneosTxt = Array.from(p.romaneos).join(', ') || '-';
+
+          htmlFilas.push(`
+            <tr>
+              <td><b>${d.nro_remito_embarque || 'S/R'}</b></td>
+              <td><b>${d.nro_manifiesto_carga || '-'}</b></td>
+              <td><span class="badge-pill badge-blue">${d.nro_guia_frutihorticola || '-'}</span></td>
+              <td><b style="color:var(--azul-francia); font-size:12px;">${p.nro_pallet_despacho}</b></td>
+              <td>${romaneosTxt}</td>
+              <td>${d.variedad || 'LAPINS'}</td>
+              <td>${calibresTxt}</td>
+              <td><b style="color:var(--color-adm); font-size:12px;">${p.totalCajas.toLocaleString()}</b></td>
+              <td><span class="${termo !== '0' ? 'badge-termo' : 'badge-pill'}">${termo}</span></td>
+              <td style="text-align:center;">
+                <button class="btn-detail-action" onclick='abrirFichaTecnicaModal(${JSON.stringify(d)}, "${p.nro_pallet_despacho}")'>
+                  👁️ Ficha
+                </button>
+              </td>
+            </tr>
+          `);
+        });
+      });
+
+      tbody.innerHTML = htmlFilas.join('');
+      document.getElementById('lblTotalesClienteSeleccionadoP2').innerText = `${registros.length} Pallets · ${totalCajas.toLocaleString()} Cajas Totales`;
+    }
+
+    // ==============================================================
+    // PESTAÑA 3: MONITOR DE VUELOS
+    // ==============================================================
+    function renderizarPestana3Vuelos() {
+      const cont = document.getElementById('contGridVuelos');
+      const vuelosMap = {};
+
+      listaDespachos.forEach(d => {
+        const vueloCod = (d.nro_manifiesto_carga || 'SIN VUELO').toUpperCase().trim();
+        if (!vuelosMap[vueloCod]) {
+          vuelosMap[vueloCod] = {
+            vuelo: vueloCod,
+            destino: d.nro_guia_frutihorticola || 'S/D',
+            fecha: d.fecha_salida,
+            remitosSet: new Set(),
+            clientesSet: new Set(),
+            palletsCount: 0,
+            kilos: 0
+          };
+        }
+        if (d.nro_remito_embarque) vuelosMap[vueloCod].remitosSet.add(d.nro_remito_embarque);
+        if (d.cliente) vuelosMap[vueloCod].clientesSet.add(d.cliente.toUpperCase().trim());
+        vuelosMap[vueloCod].palletsCount += 1;
+        vuelosMap[vueloCod].kilos += Math.abs(Number(d.kg || 0));
+      });
+
+      const vuelosArr = Object.values(vuelosMap).sort((a, b) => b.fecha.localeCompare(a.fecha));
+      document.getElementById('lblResumenVuelos').innerText = `${vuelosArr.length} Vuelos activos`;
+
+      if (vuelosArr.length === 0) {
+        cont.innerHTML = '<div style="padding:20px; font-size:11.5px; color:var(--text-secondary);">No hay vuelos registrados en el histórico.</div>';
+        return;
+      }
+
+      cont.innerHTML = vuelosArr.map(v => `
+        <div class="card-vuelo">
+          <div class="card-vuelo-header">
+            <div>
+              <span style="font-family:'Montserrat'; font-weight:800; color:var(--azul-francia); font-size:13px;">✈️ ${v.vuelo}</span>
+              <div style="font-size:10px; color:var(--text-secondary); margin-top:2px;">Destino: <b>${v.destino}</b> · Fecha: ${formatearFechaVisual(normalizarFecha(v.fecha))}</div>
+            </div>
+            <span class="badge-pill badge-blue">${v.palletsCount} Pallets</span>
+          </div>
+          <div style="font-size:10.5px; color:var(--text-secondary); display:flex; flex-direction:column; gap:3px;">
+            <div><b>Clientes:</b> ${Array.from(v.clientesSet).join(', ') || '-'}</div>
+            <div><b>Remitos:</b> ${Array.from(v.remitosSet).join(', ') || '-'}</div>
+            <div style="color:var(--color-adm); font-weight:700;"><b>Total Kilos:</b> ${Math.round(v.kilos).toLocaleString()} kg</div>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    // ==============================================================
+    // GENERADOR PACKING CONSOLIDADO (AGRUPACIÓN DIRECTA DE LA VISTA)
+    // ==============================================================
+    function exportarPackingConsolidado(cliente, fecha) {
+      // 1. Filtrar registros directos de la vista
+      const registros = listaDespachos.filter(d => 
+        normalizarFecha(d.fecha_salida) === fecha &&
+        (d.cliente || 'SIN CLIENTE').toUpperCase().trim() === cliente
+      );
+
+      if (!registros || registros.length === 0) {
+        return alert("Sin registros para exportar.");
+      }
+
+      const { jsPDF } = window.jspdf;
+      const doc = new jsPDF('l', 'mm', 'a4'); // A4 Horizontal
+
+      // Logo
+      if (logoBase64Cache) {
+        try { doc.addImage(logoBase64Cache, 'PNG', 14, 8, 30, 15); } catch (_) {}
+      }
+
+      // Membrete
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(13);
+      doc.setTextColor(30, 107, 76);
+      doc.text("CECO S.A. · PACKING LIST EXPORTACIÓN CONSOLIDADO", 48, 14);
+
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(8);
+      doc.setTextColor(85, 99, 88);
+      doc.text("Control de Embarque y Despacho Internacional de Materia Prima · COMEX", 48, 19);
+      doc.text(`Fecha Emisión: ${new Date().toLocaleDateString('es-AR')} ${new Date().toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })}`, 48, 23);
+
+      const remitosUnicos = Array.from(new Set(registros.map(r => r.nro_remito_embarque).filter(Boolean))).join(', ');
+      const vuelosUnicos = Array.from(new Set(registros.map(r => r.nro_manifiesto_carga).filter(Boolean))).join(', ');
+      const destinosUnicos = Array.from(new Set(registros.map(r => r.nro_guia_frutihorticola).filter(Boolean))).join(', ');
+      const transporteUnico = Array.from(new Set(registros.map(r => r.nro_guia_origen || r.productor).filter(Boolean))).join(', ') || 'SURFRIGO';
+      const patenteUnica = Array.from(new Set(registros.map(r => r.patentes || r.patente).filter(Boolean))).join(', ') || 'AD977UY / AE333PD';
+
+      // 2. AGRUPACIÓN JERÁRQUICA: Remito -> Pallet Integrado
+      const estructuraRemitos = {};
+      const setTodosLosCalibres = new Set();
+
+      registros.forEach(fila => {
+        const remKey = fila.nro_remito_embarque ? String(fila.nro_remito_embarque).trim() : 'S/R';
+        const palKey = fila.pallet_integrado ? String(fila.pallet_integrado).trim() : (fila.numero_romaneo_interno || 'S/P');
+
+        if (!estructuraRemitos[remKey]) {
+          estructuraRemitos[remKey] = {
+            nro_remito: remKey,
+            pallets: {}
+          };
+        }
+
+        if (!estructuraRemitos[remKey].pallets[palKey]) {
+          estructuraRemitos[remKey].pallets[palKey] = {
+            nro_pallet: palKey,
+            transporte: fila.nro_guia_origen || transporteUnico,
+            patentes: fila.patentes || patenteUnica,
+            termografo: (fila.pallet_termografo && String(fila.pallet_termografo).trim() !== '0') ? String(fila.pallet_termografo).trim() : '0',
+            variedad: fila.variedad || 'LAPINS',
+            envase: fila.envase || 'Cja 2.5 k',
+            marca: fila.marca || '1922 M',
+            tipo_embalaje: fila.tipo_embalaje || 'Bsa Aereo S.J.',
+            color: fila.color || 'DARK 3',
+            calibres: {},
+            totalCajas: 0
+          };
+        }
+
+        const calNormalizado = normalizarCalibre(fila.calibre);
+        const cant = Math.abs(Number(fila.cantidad || 0));
+
+        if (calNormalizado) {
+          setTodosLosCalibres.add(calNormalizado);
+          const pObj = estructuraRemitos[remKey].pallets[palKey];
+          pObj.calibres[calNormalizado] = (pObj.calibres[calNormalizado] || 0) + cant;
+          pObj.totalCajas += cant;
+        }
+      });
+
+      // 3. Definir columnas dinámicas de Calibres ordenadas
+      const calibresCols = Array.from(setTodosLosCalibres).sort();
+
+      const columnasBase = [
+        "Nro_Remito", "Transporte", "Patentes", "Pallet", "Termógrafo", 
+        "Variedad", "Envase", "Marca", "Tipo_Embalaje", "Color"
+      ];
+      const headTabla = [...columnasBase, ...calibresCols, "Total"];
+
+      const bodyTabla = [];
+      const filasEspeciales = [];
+
+      let totalGeneralCajas = 0;
+      let totalPalletsContados = 0;
+      const totalGeneralPorCalibre = {};
+
+      // 4. Construcción del cuerpo de la tabla (1 fila por pallet)
+      Object.keys(estructuraRemitos).forEach(remKey => {
+        const remObj = estructuraRemitos[remKey];
+        const listaPallets = Object.values(remObj.pallets);
+        
+        let totalCajasRemito = 0;
+        const totalesCalibreRemito = {};
+
+        listaPallets.forEach(pal => {
+          totalPalletsContados++;
+          totalCajasRemito += pal.totalCajas;
+          totalGeneralCajas += pal.totalCajas;
+
+          const filaItem = [
+            remKey,
+            pal.transporte,
+            pal.patentes,
+            pal.nro_pallet,
+            pal.termografo,
+            pal.variedad,
+            pal.envase,
+            pal.marca,
+            pal.tipo_embalaje,
+            pal.color
+          ];
+
+          calibresCols.forEach(cal => {
+            const cant = pal.calibres[cal] || 0;
+            filaItem.push(cant > 0 ? cant.toLocaleString() : '');
+
+            totalesCalibreRemito[cal] = (totalesCalibreRemito[cal] || 0) + cant;
+            totalGeneralPorCalibre[cal] = (totalGeneralPorCalibre[cal] || 0) + cant;
+          });
+
+          filaItem.push(pal.totalCajas.toLocaleString());
+          bodyTabla.push(filaItem);
+        });
+
+        // Fila de Subtotal por Remito
+        const filaSubRemito = [`Total ${remKey}`, "", "", "", "", "", "", "", "", ""];
+        calibresCols.forEach(cal => {
+          filaSubRemito.push(totalesCalibreRemito[cal] ? totalesCalibreRemito[cal].toLocaleString() : '');
+        });
+        filaSubRemito.push(totalCajasRemito.toLocaleString());
+        filasEspeciales.push({ index: bodyTabla.length, tipo: 'remito' });
+        bodyTabla.push(filaSubRemito);
+      });
+
+      // Fila de Total General
+      const filaFinal = ["Total general", "", "", "", "", "", "", "", "", ""];
+      calibresCols.forEach(cal => {
+        filaFinal.push(totalGeneralPorCalibre[cal] ? totalGeneralPorCalibre[cal].toLocaleString() : '');
+      });
+      filaFinal.push(totalGeneralCajas.toLocaleString());
+      filasEspeciales.push({ index: bodyTabla.length, tipo: 'general' });
+      bodyTabla.push(filaFinal);
+
+      // Render de Tarjetas Superiores de Resumen
+      const renderCard = (x, y, w, h, titulo, valor, sub) => {
+        doc.setDrawColor(210, 215, 211);
+        doc.setFillColor(248, 250, 252);
+        doc.roundedRect(x, y, w, h, 2, 2, 'FD');
+
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(7);
+        doc.setTextColor(85, 99, 88);
+        doc.text(titulo.toUpperCase(), x + 4, y + 5.5);
+
+        doc.setFontSize(9.5);
+        doc.setTextColor(18, 63, 44);
+        doc.text(valor, x + 4, y + 12);
+
+        if (sub) {
+          doc.setFont('helvetica', 'normal');
+          doc.setFontSize(6.5);
+          doc.setTextColor(100, 116, 139);
+          doc.text(sub, x + 4, y + 17);
+        }
+      };
+
+      renderCard(14, 27, 72, 20, "Cliente & Destino", cliente.substring(0, 28), `Destino: ${destinosUnicos || 'S/D'}`);
+      renderCard(89, 27, 60, 20, "Vuelo & Despacho", vuelosUnicos || 'DIRECTO', `Fecha: ${formatearFechaVisual(fecha)}`);
+      renderCard(152, 27, 62, 20, "Logística", transporteUnico.substring(0, 20), `Patente: ${patenteUnica}`);
+      renderCard(217, 27, 66, 20, "Carga Total", `${totalGeneralCajas.toLocaleString()} CAJAS`, `${totalPalletsContados} Pallets Integrados`);
+
+      // AutoTable compacta y formateada
+      doc.autoTable({
+        startY: 50,
+        head: [headTabla],
+        body: bodyTabla,
+        theme: 'grid',
+        headStyles: {
+          fillColor: [241, 245, 249],
+          textColor: [15, 23, 42],
+          fontStyle: 'bold',
+          fontSize: 7,
+          halign: 'center',
+          lineWidth: 0.2,
+          lineColor: [203, 213, 225]
+        },
+        styles: {
+          fontSize: 6.8,
+          cellPadding: 1.6,
+          halign: 'center',
+          textColor: [30, 41, 59],
+          lineWidth: 0.15,
+          lineColor: [226, 232, 240]
+        },
+        columnStyles: {
+          0: { halign: 'left', fontStyle: 'bold' },
+          3: { halign: 'center', fontStyle: 'bold', textColor: [0, 85, 165] },
+          4: { halign: 'center', textColor: [180, 83, 9] },
+          [headTabla.length - 1]: { halign: 'right', fontStyle: 'bold', textColor: [0, 85, 165] }
+        },
+        didParseCell: function(data) {
+          const rowIndex = data.row.index;
+          const conf = filasEspeciales.find(f => f.index === rowIndex);
+
+          if (conf) {
+            if (conf.tipo === 'remito') {
+              data.cell.styles.fillColor = [226, 232, 240];
+              data.cell.styles.fontStyle = 'bold';
+              data.cell.styles.textColor = [185, 28, 28];
+            }
+            if (conf.tipo === 'general') {
+              data.cell.styles.fillColor = [232, 245, 233];
+              data.cell.styles.fontStyle = 'bold';
+              data.cell.styles.textColor = [16, 70, 48];
+              data.cell.styles.fontSize = 7.5;
+            }
+          }
+        }
+      });
+
+      const finalY = doc.lastAutoTable.finalY + 6;
+      if (finalY < 200) {
+        doc.setFontSize(6.5);
+        doc.setFont('helvetica', 'normal');
+        doc.setTextColor(140, 150, 145);
+        doc.text("AgroSoft J&L · Sistema de Gestión y Trazabilidad Operativa COMEX · CECO S.A.", 148, 202, { align: 'center' });
+      }
+
+      doc.save(`Packing_${cliente.replace(/\s+/g, '_')}_${fecha}.pdf`);
+      lanzarToast("Packing PDF consolidado generado exitosamente.");
+    }
+
+    // ==============================================================
+    // GENERADOR DE REMITO OFICIAL (TRIPLICADO)
+    // ==============================================================
+    function imprimirRemitoOficial(remitoNum) {
+      if (!remitoNum) return alert("Remito no especificado.");
+
+      const filasRemito = listaDespachos.filter(d => (d.nro_remito_embarque || '').trim() === remitoNum.trim());
+      if (filasRemito.length === 0) return alert(`No se encontraron registros para el remito ${remitoNum}`);
+
+      const cabecera = filasRemito[0];
+      const fechaTxt = normalizarFecha(cabecera.fecha_salida);
+      let dia = '00', mes = '00', anio = '0000';
+      if (fechaTxt && fechaTxt.includes('-')) {
+        const p = fechaTxt.split('-');
+        if (p.length === 3) { anio = p[0]; mes = p[1]; dia = p[2]; }
+      }
+
+      let totalKilosRemito = 0;
+      let totalBultosRemito = 0;
+
+      const filasItems = [];
+
+      filasRemito.forEach(d => {
+        const palletsDesg = obtenerPalletsAgrupadosDeDespacho(d);
+        const termo = (d.pallet_termografo && String(d.pallet_termografo).trim() !== '0') ? ` (T: ${String(d.pallet_termografo).trim()})` : '';
+        const kg = Math.abs(Number(d.kg || 0));
+
+        totalKilosRemito += kg;
+
+        palletsDesg.forEach(p => {
+          totalBultosRemito += p.totalCajas;
+          const calibresTexto = Object.keys(p.calibresMap).map(c => normalizarCalibre(c)).filter(Boolean).join(', ') || '-';
+
+          filasItems.push({
+            pallet: `${p.nro_pallet_despacho}${termo}`,
+            variedad: `${d.variedad || 'LAPINS'} (${d.especie || 'CEREZA'})`,
+            calibre: calibresTexto,
+            categoria: d.descripcion || 'CAT-1 EXPO',
+            bultos: p.totalCajas.toString(),
+            peso: `${Math.round(kg)} kg`
+          });
+        });
+      });
+
+      for (let i = filasItems.length; i < 22; i++) {
+        filasItems.push({ pallet: '', variedad: '', calibre: '', categoria: '', bultos: '', peso: '' });
+      }
+
+      const tbodyHtml = filasItems.map(f => `
+        <tr>
+          <td style="text-align: center; font-weight: bold;">${f.pallet}</td>
+          <td>${f.variedad}</td>
+          <td style="text-align: center;">${f.calibre}</td>
+          <td style="text-align: center;">${f.categoria}</td>
+          <td style="text-align: center; font-weight: bold;">${f.bultos}</td>
+          <td style="text-align: right; font-weight: bold; color: ${f.peso ? '#0055A5' : 'inherit'};">
+            ${String(f.peso).replace('.', ',')}
+          </td>
+        </tr>
+      `).join('');
+
+      const copias = ["ORIGINAL", "DUPLICADO", "TRIPLICADO"];
+      const paginasHtml = copias.map(tipoCopia => `
+        <div class="page">
+          <div class="header-row">
+            <div>
+              <div class="company-title">CECO S.A. · COMEX OPERACIONES</div>
+              <div class="empaque-no">Empaque / Despacho Fitosanitario Frutícola</div>
+              <div class="location">CHIMPAY - RÍO NEGRO - ARGENTINA</div>
+            </div>
+            <div style="text-align: center;">
+              <div class="letra-box">R</div>
+              <div class="no-valido">Documento No Válido<br>Como Factura</div>
+            </div>
+            <div class="remito-meta">
+              <div class="copia-badge">${tipoCopia}</div>
+              <div class="remito-title">REMITO DE EMBARQUE</div>
+              <div class="remito-num">${remitoNum}</div>
+              <table class="date-table">
+                <tr><th>Día</th><th>Mes</th><th>Año</th></tr>
+                <tr><td>${dia}</td><td>${mes}</td><td>${anio}</td></tr>
+              </table>
+            </div>
+          </div>
+
+          <div class="cards-row">
+            <div class="card">
+              <div class="card-label">Sres. / Destinatario Exportación</div>
+              <div class="card-main">${(cabecera.cliente || 'SIN CLIENTE').toUpperCase()}</div>
+              <div class="card-sub">Destino: ${cabecera.nro_guia_frutihorticola || '-'} | Vuelo: ${cabecera.nro_manifiesto_carga || '-'}</div>
+            </div>
+            <div class="card">
+              <div class="card-sub">Transporte: ${cabecera.transporte || cabecera.productor || 'SURFRIGO'}</div>
+              <div class="card-sub" style="color: #0055A5; font-weight: bold;">Patentes: ${cabecera.patentes || cabecera.patente || 'AD977UY / AE333PD'}</div>
+              <div class="card-sub">Guía Origen: ${cabecera.nro_guia_origen || '-'} | Envase: ${cabecera.envase || 'Cja 2.5 k'}</div>
+            </div>
+          </div>
+
+          <table class="items-table">
+            <thead>
+              <tr>
+                <th style="width: 22%;">N° Pallet</th>
+                <th style="width: 26%;">Variedad / Especie</th>
+                <th style="width: 14%;">Calibre(s)</th>
+                <th style="width: 14%;">Categoría</th>
+                <th style="width: 10%;">Bultos</th>
+                <th style="width: 14%;">Peso Neto</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${tbodyHtml}
+              <tr class="total-row">
+                <td colspan="4" style="text-align: right; font-weight: bold;">TOTAL CONSOLIDADO DEL REMITO:</td>
+                <td style="text-align: center; font-weight: bold; color: #0055A5;">${totalBultosRemito.toLocaleString()}</td>
+                <td style="text-align: right; font-weight: bold; color: #1E6B4C;">${Math.round(totalKilosRemito).toLocaleString()} kg</td>
+              </tr>
+            </tbody>
+          </table>
+
+          <div class="firmas-row">
+            <div class="firma-block"><div class="linea-firma"></div><div class="firma-label">Responsable Despacho</div></div>
+            <div class="firma-block"><div class="linea-firma"></div><div class="firma-label">Conformidad Chofer</div></div>
+            <div class="firma-block"><div class="linea-firma"></div><div class="firma-label">Control Fitosanitario</div></div>
+          </div>
+
+          <div class="footer">AgroSoft J&L · Gestión y Trazabilidad Operativa COMEX · CECO S.A.</div>
+        </div>
+      `).join('');
+
+      const win = window.open('', '_blank');
+      win.document.write(`
+        <html>
+        <head>
+          <title>Remito_${remitoNum}</title>
+          <style>
+            @page { size: A4; margin: 0; }
+            * { box-sizing: border-box; font-family: sans-serif; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+            body { margin: 0; padding: 0; background: #e2e8f0; }
+            .page { width: 210mm; height: 297mm; padding: 18px 22px; margin: 10px auto; background: white; display: flex; flex-direction: column; justify-content: space-between; page-break-after: always; }
+            @media print { body { background: transparent; } .page { margin: 0; box-shadow: none; height: 100vh; } }
+            .header-row { display: flex; justify-content: space-between; align-items: flex-start; }
+            .company-title { font-size: 13px; font-weight: bold; color: #0f172a; }
+            .empaque-no { font-size: 9px; font-weight: bold; color: #0055a5; margin-top: 2px; }
+            .location { font-size: 8.5px; color: #64748b; margin-top: 1px; }
+            .letra-box { border: 2px solid #0f172a; padding: 2px 10px; font-size: 18px; font-weight: bold; display: inline-block; }
+            .no-valido { font-size: 6px; color: #475569; text-align: center; margin-top: 2px; }
+            .remito-meta { text-align: right; }
+            .copia-badge { background: #cbd5e1; padding: 2px 8px; font-size: 9px; font-weight: bold; display: inline-block; border-radius: 4px; }
+            .remito-title { font-size: 14px; font-weight: bold; color: #1e3a8a; margin-top: 2px; }
+            .remito-num { font-size: 13px; font-weight: bold; color: #1e3a8a; }
+            .date-table { border-collapse: collapse; margin-left: auto; margin-top: 4px; }
+            .date-table th, .date-table td { border: 1px solid #94a3b8; text-align: center; padding: 1px 4px; }
+            .date-table th { background: #e2e8f0; font-size: 7px; color: #0f172a; }
+            .date-table td { font-size: 8.5px; font-weight: bold; }
+            .cards-row { display: flex; gap: 10px; margin-top: 8px; }
+            .card { flex: 1; border: 1px solid #cbd5e1; border-radius: 6px; padding: 6px 8px; height: 55px; display: flex; flex-direction: column; justify-content: space-between; }
+            .card-label { font-size: 8px; color: #475569; text-transform: uppercase; font-weight: bold; }
+            .card-main { font-size: 10px; font-weight: bold; }
+            .card-sub { font-size: 8.5px; color: #334155; }
+            .items-table { width: 100%; border-collapse: collapse; margin-top: 8px; }
+            .items-table th { background: #0f172a; color: white; font-size: 8px; padding: 4px; border: 1px solid #0f172a; text-transform: uppercase; }
+            .items-table td { border: 1px solid rgba(15, 23, 42, 0.15); font-size: 8px; height: 16px; padding: 2px 4px; }
+            .total-row td { background: #f1f5f9; height: 20px; font-size: 8.5px; }
+            .firmas-row { display: flex; justify-content: space-between; margin-top: 15px; padding: 0 10px; }
+            .firma-block { text-align: center; width: 140px; }
+            .linea-firma { border-top: 1px solid black; margin-bottom: 4px; }
+            .firma-label { font-size: 8.5px; font-weight: bold; color: #1e3a8a; }
+            .footer { text-align: center; font-size: 8px; color: #64748b; margin-top: 5px; }
+          </style>
+        </head>
+        <body>
+          ${paginasHtml}
+          <script>window.onload = function() { window.print(); };<\/script>
+        </body>
+        </html>
+      `);
+      win.document.close();
+    }
+
+    // ==============================================================
+    // FICHA MODAL
+    // ==============================================================
+    function abrirFichaTecnicaModal(d, nroPalletEspecifico) {
+      const pallets = obtenerPalletsAgrupadosDeDespacho(d);
+      const palletActivo = pallets.find(p => p.nro_pallet_despacho === nroPalletEspecifico) || pallets[0];
+      const termo = (d.pallet_termografo && String(d.pallet_termografo).trim() !== '0') ? String(d.pallet_termografo).trim() : '0';
+
+      const calibresTxt = Object.keys(palletActivo.calibresMap).map(c => `${c}: ${palletActivo.calibresMap[c]}`).join(' | ');
+      const romaneosTxt = Array.from(palletActivo.romaneos).join(', ') || '-';
+
+      document.getElementById('modalTituloRemito').innerText = `Remito: ${d.nro_remito_embarque || 'S/R'}`;
+      document.getElementById('detCliente').innerText = d.cliente || '-';
+      document.getElementById('detMarca').innerText = d.marca || '-';
+      document.getElementById('detVariedadEspecie').innerText = `${d.variedad || 'LAPINS'} / ${d.especie || 'CEREZA'}`;
+      document.getElementById('detPalletDespacho').innerText = palletActivo.nro_pallet_despacho;
+
+      document.getElementById('detCalibresSumados').innerText = calibresTxt || '-';
+      document.getElementById('detCantidad').innerText = `${palletActivo.totalCajas.toLocaleString()} cajas`;
+      document.getElementById('detKilos').innerText = `${Math.round(Math.abs(Number(d.kg || 0))).toLocaleString()} kg`;
+      document.getElementById('detTermografo').innerText = termo;
+
+      document.getElementById('detVuelo').innerText = d.nro_manifiesto_carga || '-';
+      document.getElementById('detDestino').innerText = d.nro_guia_frutihorticola || '-';
+      document.getElementById('detGuiaOrigen').innerText = d.nro_guia_origen || '-';
+      document.getElementById('detRomaneo').innerText = romaneosTxt;
+
+      document.getElementById('btnModalImprimirRemito').onclick = () => {
+        imprimirRemitoOficial(d.nro_remito_embarque);
+      };
+
+      document.getElementById('modalFichaTecnica').classList.add('show');
+    }
+
+    function cerrarFichaModal() {
+      document.getElementById('modalFichaTecnica').classList.remove('show');
+    }
+  </script>
+</body>
+</html>

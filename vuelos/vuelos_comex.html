@@ -1,0 +1,1488 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Despacho y Vuelos COMEX · CECO S.A.</title>
+  <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700;900&family=Montserrat:wght@600;700;800;900&display=swap" rel="stylesheet">
+  
+  <!-- CDN Supabase y jsPDF -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js"></script>
+
+  <style>
+    :root {
+      --color-bg: #F4F6F4;
+      --color-surface: #FFFFFF;
+      --color-text: #1A211C;
+      --color-text-secondary: #556358;
+      --color-border: #D2D7D3;
+      --color-adm: #1E6B4C;
+      --color-adm-dark: #104630;
+      --color-adm-soft: rgba(30, 107, 76, 0.08);
+      --color-ok: #2E7D32;
+      --color-ok-soft: #E8F5E9;
+      --color-warn: #C62828;
+      --color-warn-soft: #FFEBEE;
+      --color-blue: #0071E3;
+      --color-blue-soft: #EBF3FA;
+      --color-amber: #B45309;
+      --color-amber-soft: #FFFBEB;
+      --color-amber-border: #FCD34D;
+      --radius-lg: 16px;
+      --radius-md: 10px;
+      --radius-sm: 8px;
+      --font-family: 'Roboto', -apple-system, BlinkMacSystemFont, sans-serif;
+    }
+
+    * { box-sizing: border-box; }
+    html, body {
+      margin: 0;
+      height: 100%;
+      font-family: var(--font-family);
+      background: var(--color-bg);
+      color: var(--color-text);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #C4CCC6; border-radius: 20px; }
+    ::-webkit-scrollbar-thumb:hover { background: var(--color-adm); }
+
+    /* Barra Superior Compacta */
+    .top-system-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: #FFFFFF;
+      padding: 8px 16px;
+      border-bottom: 1px solid var(--color-border);
+      height: 56px;
+      flex-shrink: 0;
+      gap: 10px;
+      z-index: 20;
+    }
+
+    .topbar-izq {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      min-width: 0;
+    }
+
+    .topbar-logo {
+      height: 34px;
+      max-width: 105px;
+      object-fit: contain;
+      flex-shrink: 0;
+    }
+
+    .user-access-info {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--color-text-secondary);
+      white-space: nowrap;
+    }
+    .user-access-info span.highlight {
+      color: var(--color-adm);
+      font-weight: 800;
+      font-family: 'Montserrat', sans-serif;
+    }
+
+    .badge-rol {
+      padding: 2px 7px;
+      border-radius: 12px;
+      font-size: 10px;
+      font-weight: 900;
+      text-transform: uppercase;
+    }
+    .rol-adm { background: #FEE2E2; color: #991B1B; border: 1px solid #F87171; }
+    .rol-comex { background: #DCFCE7; color: #166534; border: 1px solid #86EFAC; }
+
+    .top-right-bar {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-shrink: 0;
+    }
+
+    .system-datetime {
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--color-text-secondary);
+    }
+
+    .btn-top-nav {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      background: var(--color-blue-soft);
+      border: 1px solid rgba(0, 113, 227, 0.25);
+      color: var(--color-blue);
+      padding: 6px 12px;
+      border-radius: 20px;
+      font-size: 11px;
+      font-weight: 700;
+      cursor: pointer;
+      text-decoration: none;
+      transition: all 0.2s ease;
+    }
+    .btn-top-nav:hover { background: var(--color-blue); color: #FFFFFF; }
+
+    .btn-sync-top {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      background: var(--color-adm-soft);
+      border: 1px solid rgba(30, 107, 76, 0.25);
+      color: var(--color-adm-dark);
+      padding: 6px 12px;
+      border-radius: 20px;
+      font-size: 11px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+    .btn-sync-top:hover { background: var(--color-adm); color: #FFFFFF; }
+    .btn-sync-top.rotating svg { animation: girar 1s linear infinite; }
+    @keyframes girar { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+
+    .btn-logout {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      background: #FFFDE7;
+      border: 1px solid #FBC02D;
+      padding: 6px 12px;
+      border-radius: 20px;
+      font-size: 11px;
+      font-weight: 700;
+      color: #F57F17;
+      cursor: pointer;
+      text-decoration: none;
+    }
+    .btn-logout:hover { background: #FFF9C4; color: #E65100; }
+
+    /* Layout Completo */
+    .main-content {
+      flex: 1;
+      padding: 12px 18px;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      max-width: 1600px;
+      width: 100%;
+      margin: 0 auto;
+    }
+
+    .header-area {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 10px;
+      flex-shrink: 0;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .seccion-titulo-wrap { position: relative; padding-left: 12px; }
+    .seccion-titulo-wrap::before {
+      content: '';
+      position: absolute;
+      left: 0; top: 2px; bottom: 2px;
+      width: 4px;
+      border-radius: 4px;
+      background: linear-gradient(180deg, var(--color-adm), var(--color-adm-dark));
+    }
+    .seccion-titulo {
+      font-size: 18px;
+      font-weight: 800;
+      margin: 0;
+      color: var(--color-adm-dark);
+      font-family: 'Montserrat', sans-serif;
+    }
+    .seccion-subtitulo {
+      font-size: 11px;
+      font-weight: 500;
+      color: var(--color-text-secondary);
+      margin-top: 2px;
+    }
+
+    .header-botones {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .btn-action {
+      border: 1px solid transparent;
+      border-radius: var(--radius-sm);
+      padding: 8px 14px;
+      font-size: 11.5px;
+      font-weight: 700;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.15s ease;
+    }
+    .btn-nuevo {
+      background: var(--color-adm);
+      color: #FFFFFF;
+      box-shadow: 0 2px 6px rgba(30, 107, 76, 0.2);
+    }
+    .btn-nuevo:hover { background: var(--color-adm-dark); transform: translateY(-1px); }
+
+    .btn-pdf {
+      background: #FFFFFF;
+      border-color: #B91C1C;
+      color: #B91C1C;
+    }
+    .btn-pdf:hover { background: #B91C1C; color: #FFFFFF; }
+
+    /* Barra Filtros y Totales */
+    .filtro-fechas-card {
+      background: #FFFFFF;
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-md);
+      padding: 8px 14px;
+      margin-bottom: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      flex-shrink: 0;
+      flex-wrap: wrap;
+    }
+    .filtro-fechas-chips { display: flex; gap: 6px; align-items: center; }
+    .chip-preset {
+      background: var(--color-adm-soft);
+      color: var(--color-adm-dark);
+      border: 1px solid transparent;
+      border-radius: 16px;
+      padding: 4px 10px;
+      font-size: 10.5px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+    .chip-preset:hover, .chip-preset.active { background: var(--color-adm); color: #fff; }
+
+    /* Master-Detail */
+    .master-detail-grid {
+      display: grid;
+      grid-template-columns: 240px 1fr;
+      gap: 12px;
+      flex: 1;
+      overflow: hidden;
+    }
+
+    .panel-master {
+      background: #FFFFFF;
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-lg);
+      padding: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      overflow: hidden;
+    }
+    .lista-semanas-scroll {
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      flex: 1;
+    }
+
+    .fila-card-master {
+      background: #F8FAFC;
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-md);
+      padding: 9px 12px;
+      cursor: pointer;
+      transition: all 0.15s ease;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .fila-card-master:hover { border-color: var(--color-adm); background: #FFFFFF; }
+    .fila-card-master.active {
+      border-color: var(--color-adm);
+      background: var(--color-adm-soft);
+      box-shadow: 0 2px 6px rgba(30, 107, 76, 0.10);
+    }
+    .f-title { font-size: 12px; font-weight: 800; color: var(--color-adm-dark); font-family: 'Montserrat', sans-serif; }
+    .f-sub { font-size: 10px; font-weight: 600; color: var(--color-text-secondary); margin-top: 1px; }
+
+    .panel-detail {
+      background: #FFFFFF;
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-lg);
+      padding: 12px 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      overflow: hidden;
+    }
+
+    /* Vista Tabla Escritorio */
+    .tabla-wrap {
+      flex: 1;
+      overflow: auto;
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-md);
+    }
+    .tabla-custom {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 11.5px;
+    }
+    .tabla-custom th {
+      position: sticky;
+      top: 0;
+      background: #FAFAF8;
+      padding: 9px 10px;
+      font-size: 9.5px;
+      font-weight: 800;
+      color: var(--color-text-secondary);
+      text-transform: uppercase;
+      border-bottom: 1px solid var(--color-border);
+      text-align: left;
+      z-index: 1;
+      white-space: nowrap;
+    }
+    .tabla-custom td {
+      padding: 8px 10px;
+      border-bottom: 1px solid var(--color-border);
+      color: var(--color-text);
+      vertical-align: middle;
+    }
+    .tabla-custom tr:hover td { background: rgba(30, 107, 76, 0.03); }
+
+    /* Vista Tarjetas Móvil */
+    .contenedor-cards-movil {
+      display: none;
+      flex-direction: column;
+      gap: 10px;
+      overflow-y: auto;
+      flex: 1;
+      padding-right: 2px;
+    }
+    .card-vuelo-movil {
+      background: #FFFFFF;
+      border: 1.5px solid var(--color-border);
+      border-radius: var(--radius-md);
+      padding: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.02);
+    }
+    .card-vuelo-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid var(--color-border);
+      padding-bottom: 6px;
+    }
+    .card-vuelo-destino {
+      font-family: 'Montserrat', sans-serif;
+      font-size: 16px;
+      font-weight: 900;
+      color: var(--color-adm-dark);
+    }
+    .card-vuelo-ruta {
+      background: #F8FAFC;
+      border-radius: var(--radius-sm);
+      padding: 7px 10px;
+      font-size: 11px;
+      line-height: 1.4;
+    }
+
+    .badge-tag { padding: 2px 6px; border-radius: 4px; font-size: 9.5px; font-weight: 800; text-transform: uppercase; display: inline-block; }
+    .tag-verde { background: var(--color-ok-soft); color: var(--color-ok); }
+    .tag-azul { background: var(--color-blue-soft); color: var(--color-blue); }
+    .tag-amarillo { background: var(--color-amber-soft); color: #92400E; border: 1px solid var(--color-amber-border); }
+
+    .btn-accion {
+      border: 1px solid var(--color-border);
+      background: #FFFFFF;
+      cursor: pointer;
+      padding: 4px 6px;
+      border-radius: 6px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 11px;
+    }
+    .btn-accion.edit:hover { background: #FFFDE7; border-color: #FFF176; color: #F57F17; }
+    .btn-accion.delete:hover { background: #FFEBEE; border-color: #FFCDD2; color: #C62828; }
+
+    /* Modales Estilo Apple Soft */
+    .modal-overlay {
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(15, 23, 42, 0.55);
+      backdrop-filter: blur(5px);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 9999;
+      padding: 12px;
+    }
+    .modal-overlay.show { display: flex !important; }
+    .modal-box {
+      background: #FFFFFF;
+      border-radius: var(--radius-lg);
+      padding: 20px;
+      width: 100%;
+      max-width: 860px;
+      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.18);
+      border: 1px solid var(--color-border);
+      max-height: 94vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* Modal de Confirmación Estilizado */
+    .modal-box-confirm {
+      max-width: 400px !important;
+      text-align: center;
+      padding: 24px;
+      gap: 12px;
+    }
+    .modal-confirm-icon {
+      font-size: 38px;
+      margin-bottom: 2px;
+    }
+    .modal-confirm-title {
+      font-family: 'Montserrat', sans-serif;
+      font-size: 16px;
+      font-weight: 800;
+      color: var(--color-text);
+      margin: 0;
+    }
+    .modal-confirm-desc {
+      font-size: 12.5px;
+      color: var(--color-text-secondary);
+      line-height: 1.4;
+      margin: 0;
+    }
+    .modal-confirm-actions {
+      display: flex;
+      gap: 10px;
+      justify-content: center;
+      margin-top: 10px;
+    }
+
+    .form-tabs-nav {
+      display: flex;
+      gap: 6px;
+      border-bottom: 2px solid var(--color-border);
+      margin-bottom: 12px;
+      overflow-x: auto;
+      flex-shrink: 0;
+    }
+    .form-tab-btn {
+      padding: 7px 12px;
+      background: #F1F5F9;
+      border: 1px solid var(--color-border);
+      border-bottom: none;
+      border-radius: 8px 8px 0 0;
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--color-text-secondary);
+      cursor: pointer;
+      white-space: nowrap;
+    }
+    .form-tab-btn.active {
+      background: #FFFFFF;
+      color: var(--color-adm-dark);
+      border-bottom: 3px solid var(--color-adm);
+    }
+
+    .form-tab-pane { display: none; flex-direction: column; gap: 10px; }
+    .form-tab-pane.active { display: flex; }
+
+    .modal-body { overflow-y: auto; flex: 1; padding-right: 4px; }
+    .modal-group { display: flex; flex-direction: column; gap: 3px; }
+    .modal-group label { font-size: 9.5px; font-weight: 700; color: var(--color-text-secondary); text-transform: uppercase; }
+    .modal-input { width: 100%; padding: 8px 10px; border-radius: var(--radius-sm); border: 1px solid var(--color-border); font-size: 12px; background: #FAFAFA; outline: none; font-family: inherit; }
+    .modal-input:focus { border-color: var(--color-adm); background: #FFFFFF; }
+    .modal-row-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 10px; }
+    .modal-footer { display: flex; justify-content: space-between; align-items: center; margin-top: 12px; flex-shrink: 0; }
+    .modal-btn { border-radius: var(--radius-sm); padding: 8px 16px; font-size: 11.5px; font-weight: 700; cursor: pointer; border: 1px solid transparent; }
+    .modal-btn.cancel { background: transparent; border-color: var(--color-border); color: var(--color-text-secondary); }
+    .modal-btn.save { background: var(--color-adm); color: #FFFFFF; }
+    .modal-btn.danger { background: #DC2626; color: #FFFFFF; }
+
+    .badge-semana-calculada {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: var(--color-adm-soft);
+      border: 1px solid rgba(30, 107, 76, 0.25);
+      color: var(--color-adm-dark);
+      padding: 8px 12px;
+      border-radius: var(--radius-sm);
+      font-size: 12px;
+      font-weight: 800;
+      font-family: 'Montserrat', sans-serif;
+    }
+
+    @media (max-width: 860px) {
+      body { overflow-y: auto; }
+      .system-datetime { display: none; }
+      .main-content { padding: 10px; }
+      .master-detail-grid {
+        grid-template-columns: 1fr;
+        display: flex;
+        flex-direction: column;
+        overflow: visible;
+      }
+      .panel-master { max-height: 140px; }
+      .lista-semanas-scroll {
+        flex-direction: row;
+        overflow-x: auto;
+        overflow-y: hidden;
+      }
+      .fila-card-master {
+        min-width: 140px;
+        flex-shrink: 0;
+      }
+      .tabla-wrap { display: none; }
+      .contenedor-cards-movil { display: flex; }
+      .panel-detail { min-height: 450px; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Barra Superior Compacta con Logo -->
+  <header class="top-system-bar">
+    <div class="topbar-izq">
+      <img src="../logo.png" alt="Logo" class="topbar-logo" onerror="this.style.display='none'">
+      <div class="user-access-info">
+        👤 <span class="highlight" id="lblUsuarioTopbar">—</span>
+        <span class="badge-rol" id="badgeRolUsuario">COMEX</span>
+        &nbsp;·&nbsp; TEMP <span class="highlight" id="lblTemporadaTopbar">2026</span>
+      </div>
+    </div>
+
+    <div class="top-right-bar">
+      <div class="system-datetime" id="lblFechaHora">09/09/2026</div>
+      
+      <!-- Botón de Navegación a Programa (Solo visible para ADM/ADMIN) -->
+      <a href="../programa/programa_trab.html" class="btn-top-nav" id="btnIrProgramaHeader">
+        📋 Ir a Programa
+      </a>
+
+      <button class="btn-sync-top" id="btnSync" onclick="sincronizar()" title="Sincronizar con Supabase">
+        <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/></svg>
+        Sincronizar
+      </button>
+      <a href="../loguer.html" class="btn-logout" onclick="cerrarSesion()">
+        ✕ Salir
+      </a>
+    </div>
+  </header>
+
+  <!-- Contenedor Principal -->
+  <main class="main-content">
+    <div class="header-area">
+      <div class="seccion-titulo-wrap">
+        <h1 class="seccion-titulo">Despacho de Vuelos de Cosecha</h1>
+        <div class="seccion-subtitulo" id="lblSubtituloModo">
+          Operaciones aéreas y logística internacional de la temporada.
+        </div>
+      </div>
+
+      <div class="header-botones">
+        <button class="btn-action btn-pdf" onclick="exportarVuelosAPDF()">
+          📄 Exportar Detalle (PDF)
+        </button>
+        <!-- Visible para COMEX (se oculta a ADM/ADMIN) -->
+        <button class="btn-action btn-nuevo" id="btnNuevoDespachoHeader" onclick="abrirModalNuevoVuelo()">
+          ➕ Registrar Despacho
+        </button>
+      </div>
+    </div>
+
+    <!-- Barra de Filtros y Totales -->
+    <div class="filtro-fechas-card">
+      <div class="filtro-fechas-chips">
+        <span style="font-size: 11px; font-weight: 700; color: var(--color-text-secondary);">Semanas:</span>
+        <button class="chip-preset active" onclick="filtrarSemanasPreset('TODAS', this)">Todas</button>
+        <button class="chip-preset" onclick="filtrarSemanasPreset('RECIENTES', this)">Últimas 4 Semanas</button>
+      </div>
+      <div style="font-size: 11.5px; font-weight: 700; color: var(--color-adm-dark);" id="lblResumenTotales">
+        0 Cajas · 0 Kilos netos
+      </div>
+    </div>
+
+    <!-- Master - Detail -->
+    <div class="master-detail-grid">
+      <!-- Selector de Semanas -->
+      <div class="panel-master">
+        <div style="font-size: 11px; font-weight: 800; color: var(--color-text-secondary); text-transform: uppercase; padding-bottom: 4px; border-bottom: 1px solid var(--color-border);">
+          Semanas Operativas
+        </div>
+        <div class="lista-semanas-scroll" id="contenedorSemanas">
+          <div style="font-size: 11.5px; color: var(--color-text-secondary); padding: 8px;">Cargando...</div>
+        </div>
+      </div>
+
+      <!-- Detalle de Vuelos -->
+      <div class="panel-detail">
+        <div style="display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap;">
+          <div style="font-size: 12px; font-weight: 800; color: var(--color-adm-dark); font-family: 'Montserrat';" id="lblTituloDetalleSemana">
+            Seleccioná una semana
+          </div>
+          <input type="text" class="modal-input" style="width: 200px; padding: 5px 8px; font-size: 11px;" placeholder="🔍 Buscar cliente, AWB, vuelo..." oninput="filtrarVuelosEnTabla(this.value)">
+        </div>
+
+        <!-- 1. Vista Tabla para Computadora -->
+        <div class="tabla-wrap">
+          <table class="tabla-custom">
+            <thead>
+              <tr>
+                <th>Registro</th>
+                <th>Operador</th>
+                <th>Fecha / Ingreso</th>
+                <th>Cliente</th>
+                <th>Destino</th>
+                <th>Línea Aérea</th>
+                <th>AWB / Vuelo 1</th>
+                <th>Conexión (Tramo 2)</th>
+                <th>Pallets / Kilos</th>
+                <th>Tarifa / Fijos</th>
+                <th style="text-align: right;" id="thAccionesTabla">Acciones</th>
+              </tr>
+            </thead>
+            <tbody id="tbodyDetalleVuelos">
+              <tr><td colspan="11" style="text-align: center; padding: 24px; color: var(--color-text-secondary);">Seleccioná una semana.</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- 2. Vista Tarjetas Táctiles para Celulares -->
+        <div class="contenedor-cards-movil" id="contenedorCardsMovil">
+          <div style="text-align:center; padding:20px; font-size:12px; color:var(--color-text-secondary);">Seleccioná una semana.</div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <!-- Modal Completo con 4 Pestañas Operativas -->
+  <div class="modal-overlay" id="modalVuelo">
+    <div class="modal-box">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+        <h3 class="modal-title" id="lblModalTitulo">Registrar Despacho Aéreo</h3>
+        <span id="lblRegistroIdBadge" class="badge-tag tag-azul">—</span>
+      </div>
+
+      <div class="form-tabs-nav">
+        <button type="button" class="form-tab-btn active" onclick="cambiarTabModal(0, this)">1. Carga y Destino</button>
+        <button type="button" class="form-tab-btn" onclick="cambiarTabModal(1, this)">2. Tramo 1 (Salida)</button>
+        <button type="button" class="form-tab-btn" onclick="cambiarTabModal(2, this)">3. Tramo 2 (Conexión)</button>
+        <button type="button" class="form-tab-btn" onclick="cambiarTabModal(3, this)">4. Tarifas y Costos</button>
+      </div>
+
+      <form id="formVuelo" onsubmit="guardarFormularioVuelo(event)">
+        <div class="modal-body">
+          <input type="hidden" id="txtRegistroId" />
+
+          <!-- PESTAÑA 1 -->
+          <div class="form-tab-pane active" id="modalTab0">
+            <div class="modal-row-grid">
+              <div class="modal-group">
+                <label>Fecha de Despacho *</label>
+                <input type="date" id="txtFecha" class="modal-input" required onchange="actualizarSemanaSegunFecha(this.value)" />
+              </div>
+              <div class="modal-group">
+                <label>Semana Calculada</label>
+                <div class="badge-semana-calculada">
+                  📅 Semana: <span id="lblSemanaCalculada">—</span>
+                </div>
+                <input type="hidden" id="valSemanaCalculada" />
+              </div>
+              <div class="modal-group">
+                <label>Fecha de Ingreso</label>
+                <input type="date" id="txtIngresoFecha" class="modal-input" />
+              </div>
+            </div>
+
+            <div class="modal-row-grid" style="grid-template-columns: 1fr 2fr;">
+              <div class="modal-group">
+                <label>Cliente</label>
+                <input type="text" class="modal-input" value="CECO" readonly style="background: #F1F5F9; font-weight:800; color:#1E3A8A;" />
+              </div>
+              <div class="modal-group">
+                <label>Destino (Aeropuerto / Ciudad) *</label>
+                <input type="text" id="txtDestino" class="modal-input" required placeholder="Ej: PVG / CAN / MIA" />
+              </div>
+            </div>
+
+            <div class="modal-row-grid">
+              <div class="modal-group">
+                <label>Pallets (PCS) *</label>
+                <input type="number" id="txtPcs" class="modal-input" required min="0" placeholder="Ej: 5" />
+              </div>
+              <div class="modal-group">
+                <label>Kilos Totales *</label>
+                <input type="number" id="txtKilos" class="modal-input" required min="0" placeholder="Ej: 3250" />
+              </div>
+              <div class="modal-group">
+                <label>Kilos Netos</label>
+                <input type="number" id="txtNeta" class="modal-input" min="0" placeholder="Opcional" />
+              </div>
+              <div class="modal-group">
+                <label>ULDs / Contenedores</label>
+                <input type="number" id="txtUld" class="modal-input" min="0" placeholder="Cantidad ULD" />
+              </div>
+            </div>
+          </div>
+
+          <!-- PESTAÑA 2 -->
+          <div class="form-tab-pane" id="modalTab1">
+            <div class="modal-row-grid">
+              <div class="modal-group">
+                <label>Línea Aérea *</label>
+                <input type="text" id="txtLineaAerea" class="modal-input" required placeholder="Ej: LUFTHANSA, DELTA, EMIRATES" />
+              </div>
+              <div class="modal-group">
+                <label>Nº de Guía Aérea (AWB) *</label>
+                <input type="text" id="txtAwb" class="modal-input" required placeholder="Ej: 020-03123046" />
+              </div>
+              <div class="modal-group">
+                <label>Nº de Vuelo Salida *</label>
+                <input type="text" id="txtVuelo" class="modal-input" required placeholder="Ej: LH 511 / DL 114" />
+              </div>
+            </div>
+
+            <div class="modal-row-grid">
+              <div class="modal-group">
+                <label>Fecha ETD 1 (Salida)</label>
+                <input type="date" id="txtFechaEtd1" class="modal-input" />
+              </div>
+              <div class="modal-group">
+                <label>Hora ETD 1</label>
+                <input type="time" id="txtHoraEtd1" class="modal-input" />
+              </div>
+              <div class="modal-group">
+                <label>Fecha ETA 1 (Llegada)</label>
+                <input type="date" id="txtFechaEta1" class="modal-input" />
+              </div>
+              <div class="modal-group">
+                <label>Hora ETA 1</label>
+                <input type="time" id="txtHoraEta1" class="modal-input" />
+              </div>
+            </div>
+          </div>
+
+          <!-- PESTAÑA 3 -->
+          <div class="form-tab-pane" id="modalTab2">
+            <div class="modal-row-grid">
+              <div class="modal-group">
+                <label>Vuelo de Conexión (CNX)</label>
+                <input type="text" id="txtVueloCnx" class="modal-input" placeholder="Ej: LH8400 / DL281 / EK304" />
+              </div>
+              <div class="modal-group">
+                <label>Fecha ETD 2 (Salida CNX)</label>
+                <input type="date" id="txtFechaEtd2" class="modal-input" />
+              </div>
+              <div class="modal-group">
+                <label>Hora ETD 2</label>
+                <input type="time" id="txtHoraEtd2" class="modal-input" />
+              </div>
+            </div>
+
+            <div class="modal-row-grid">
+              <div class="modal-group">
+                <label>Fecha ETA 2 (Destino Final)</label>
+                <input type="date" id="txtFechaEta2" class="modal-input" />
+              </div>
+              <div class="modal-group">
+                <label>Hora ETA 2</label>
+                <input type="time" id="txtHoraEta2" class="modal-input" />
+              </div>
+            </div>
+          </div>
+
+          <!-- PESTAÑA 4 -->
+          <div class="form-tab-pane" id="modalTab3">
+            <div class="modal-row-grid">
+              <div class="modal-group">
+                <label>Tarifa por Kilo</label>
+                <input type="text" id="txtTarifa" class="modal-input" placeholder="Ej: USD 3,10" />
+              </div>
+              <div class="modal-group">
+                <label>Gastos Fijos</label>
+                <input type="text" id="txtFijos" class="modal-input" placeholder="Ej: USD 174,00" />
+              </div>
+            </div>
+
+            <div class="modal-group">
+              <label>Información Adicional / Observaciones</label>
+              <textarea id="txtInfo" class="modal-input" rows="3" placeholder="Notas internas sobre este despacho..."></textarea>
+            </div>
+          </div>
+        </div>
+
+        <div class="modal-footer">
+          <button type="button" class="modal-btn cancel" onclick="cerrarModalVuelo()">Cancelar</button>
+          <button type="submit" class="modal-btn save" id="btnGuardarModal">Guardar Despacho</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL DE CONFIRMACIÓN ELEGANTE (APPLE SOFT) -->
+  <div class="modal-overlay" id="modalConfirmacionGenerico">
+    <div class="modal-box modal-box-confirm">
+      <div class="modal-confirm-icon" id="confirmModalIcon">🗑️</div>
+      <h3 class="modal-confirm-title" id="confirmModalTitulo">¿Eliminar registro?</h3>
+      <p class="modal-confirm-desc" id="confirmModalDesc">Esta acción no se puede deshacer.</p>
+      <div class="modal-confirm-actions">
+        <button type="button" class="modal-btn cancel" id="btnConfirmCancelar">Cancelar</button>
+        <button type="button" class="modal-btn danger" id="btnConfirmAceptar">Aceptar</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const AÑO_ACTUAL = 2026;
+    const SUPABASE_URL = 'https://veqpyhifwubcdxocckmf.supabase.co';
+    const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZlcXB5aGlmd3ViY2R4b2Nja21mIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU4NzI5NzAsImV4cCI6MjA5MTQ0ODk3MH0.mIRsPLLoHn9jQtvCCwxG3aNFWtXIdcV12kLTC_MqybY';
+    const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+    let sesionUsuario = null;
+    let esAdministrador = false;
+    let vuelosUsuario = [];
+    let semanaSeleccionada = null;
+
+    let servSinc = null;
+    if (typeof require === 'function') {
+      try { servSinc = require('../servicios/sincronizacion.js'); } catch (e) {}
+    }
+
+    // Modal de confirmación moderno tipo Apple Soft
+    function mostrarModalConfirmacion({ icono = '⚠️', titulo, mensaje, btnTexto = 'Eliminar', btnClase = 'danger' }) {
+      return new Promise((resolve) => {
+        const overlay = document.getElementById('modalConfirmacionGenerico');
+        document.getElementById('confirmModalIcon').innerText = icono;
+        document.getElementById('confirmModalTitulo').innerText = titulo;
+        document.getElementById('confirmModalDesc').innerText = mensaje;
+        
+        const btnAceptar = document.getElementById('btnConfirmAceptar');
+        const btnCancelar = document.getElementById('btnConfirmCancelar');
+        
+        btnAceptar.innerText = btnTexto;
+        btnAceptar.className = `modal-btn ${btnClase}`;
+
+        const cerrarYResolver = (valor) => {
+          overlay.classList.remove('show');
+          overlay.style.display = 'none';
+          btnAceptar.onclick = null;
+          btnCancelar.onclick = null;
+          resolve(valor);
+        };
+
+        btnAceptar.onclick = () => cerrarYResolver(true);
+        btnCancelar.onclick = () => cerrarYResolver(false);
+
+        overlay.classList.add('show');
+        overlay.style.display = 'flex';
+      });
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+      const sesionRaw = localStorage.getItem('comex_sesion');
+      if (!sesionRaw) {
+        window.location.href = '../loguer.html';
+        return;
+      }
+
+      sesionUsuario = JSON.parse(sesionRaw);
+      
+      const rol = (sesionUsuario.rol || 'COMEX').toUpperCase();
+      esAdministrador = (rol === 'ADM' || rol === 'ADMIN' || sesionUsuario.usuario.toUpperCase() === 'ADMIN');
+
+      document.getElementById('lblUsuarioTopbar').innerText = sesionUsuario.usuario;
+      document.getElementById('lblTemporadaTopbar').innerText = AÑO_ACTUAL;
+      
+      const badgeRol = document.getElementById('badgeRolUsuario');
+      badgeRol.innerText = rol;
+      badgeRol.className = `badge-rol ${esAdministrador ? 'rol-adm' : 'rol-comex'}`;
+
+      const btnIrPrograma = document.getElementById('btnIrProgramaHeader');
+      const btnNuevoDespacho = document.getElementById('btnNuevoDespachoHeader');
+      const thAcciones = document.getElementById('thAccionesTabla');
+
+      // REGLA DE ROLES:
+      if (esAdministrador) {
+        // Rol ADM / ADMIN: Muestra botón de programa, pero OCULTA el botón de nuevo despacho
+        if (btnIrPrograma) btnIrPrograma.style.display = 'inline-flex';
+        if (btnNuevoDespacho) btnNuevoDespacho.style.display = 'none';
+        if (thAcciones) thAcciones.style.display = 'none';
+        document.getElementById('lblSubtituloModo').innerText = 'Modo Auditoría General: Visualizando todos los vuelos de la temporada.';
+      } else {
+        // Rol COMEX: OCULTA botón hacia Programa, pero MUESTRA el botón de registrar despacho
+        if (btnIrPrograma) btnIrPrograma.style.display = 'none';
+        if (btnNuevoDespacho) btnNuevoDespacho.style.display = 'inline-flex';
+        if (thAcciones) thAcciones.style.display = '';
+        document.getElementById('lblSubtituloModo').innerText = 'Operaciones aéreas y logística internacional cargadas por tu usuario.';
+      }
+
+      cargarDatosVuelos();
+    });
+
+    function calcularNumeroSemana(fechaStr) {
+      if (!fechaStr) return null;
+      const [year, month, day] = fechaStr.split('-').map(Number);
+      const d = new Date(Date.UTC(year, month - 1, day));
+      const dayNum = d.getUTCDay() || 7;
+      d.setUTCDate(d.getUTCDate() + 4 - dayNum);
+      const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+      return Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
+    }
+
+    function actualizarSemanaSegunFecha(fechaStr) {
+      const numSem = calcularNumeroSemana(fechaStr);
+      if (numSem) {
+        document.getElementById('lblSemanaCalculada').innerText = numSem;
+        document.getElementById('valSemanaCalculada').value = numSem;
+      } else {
+        document.getElementById('lblSemanaCalculada').innerText = '—';
+        document.getElementById('valSemanaCalculada').value = '';
+      }
+    }
+
+    function cambiarTabModal(idx, btn) {
+      document.querySelectorAll('.form-tab-btn').forEach(b => b.classList.remove('active'));
+      document.querySelectorAll('.form-tab-pane').forEach(p => p.classList.remove('active'));
+
+      btn.classList.add('active');
+      document.getElementById(`modalTab${idx}`).classList.add('active');
+    }
+
+    // Cargar Vuelos: ADM ve todo; COMEX ve sus registros
+    async function cargarDatosVuelos() {
+      try {
+        let query = supabaseClient
+          .from('logistitcas_temporada')
+          .select('*')
+          .eq('temporada', AÑO_ACTUAL);
+
+        if (!esAdministrador) {
+          query = query.ilike('usuario', sesionUsuario.usuario.trim());
+        }
+
+        const { data, error } = await query.order('semana', { ascending: false });
+
+        if (error) throw error;
+        vuelosUsuario = data || [];
+
+      } catch (err) {
+        console.warn("Offline local:", err.message);
+        if (servSinc) {
+          const { db } = require('../data/base.js');
+          const todosLocales = db.prepare(`SELECT * FROM local_logistitcas_temporada`).all()
+            .filter(x => x.temporada === AÑO_ACTUAL);
+          
+          vuelosUsuario = esAdministrador ? todosLocales : todosLocales.filter(x => String(x.usuario).toLowerCase() === sesionUsuario.usuario.toLowerCase());
+        }
+      }
+
+      actualizarMetricasYRenders();
+    }
+
+    function actualizarMetricasYRenders() {
+      const totalPcs = vuelosUsuario.reduce((acc, v) => acc + Number(v.pcs || 0), 0);
+      const totalKilos = vuelosUsuario.reduce((acc, v) => acc + Number(v.kilos || 0), 0);
+      document.getElementById('lblResumenTotales').innerText = `${totalPcs.toLocaleString()} Pallets · ${totalKilos.toLocaleString()} Kilos`;
+
+      renderListaSemanas();
+    }
+
+    function renderListaSemanas() {
+      const cont = document.getElementById('contenedorSemanas');
+      const semanasSet = new Set(vuelosUsuario.map(v => Number(v.semana || 0)).filter(Boolean));
+      const semanasArr = Array.from(semanasSet).sort((a, b) => b - a);
+
+      if (semanasArr.length === 0) {
+        cont.innerHTML = '<div style="font-size:11px; color:var(--color-text-secondary); padding:8px;">Sin despachos cargados.</div>';
+        document.getElementById('tbodyDetalleVuelos').innerHTML = '<tr><td colspan="11" style="text-align:center; padding:20px;">Sin registros.</td></tr>';
+        document.getElementById('contenedorCardsMovil').innerHTML = '<div style="text-align:center; padding:20px; color:var(--color-text-secondary);">Sin registros.</div>';
+        return;
+      }
+
+      if (!semanaSeleccionada || !semanasSet.has(semanaSeleccionada)) {
+        semanaSeleccionada = semanasArr[0];
+      }
+
+      cont.innerHTML = semanasArr.map(sem => {
+        const cant = vuelosUsuario.filter(v => Number(v.semana) === sem).length;
+        const activeClass = (sem === semanaSeleccionada) ? 'active' : '';
+
+        return `
+          <div class="fila-card-master ${activeClass}" onclick="seleccionarSemana(${sem}, this)">
+            <div>
+              <div class="f-title">Semana ${sem}</div>
+              <div class="f-sub">${cant} despachos</div>
+            </div>
+            <span class="badge-tag tag-verde">Sem ${sem}</span>
+          </div>
+        `;
+      }).join('');
+
+      renderDetalleVuelos();
+    }
+
+    function seleccionarSemana(sem, elem) {
+      semanaSeleccionada = sem;
+      document.querySelectorAll('.fila-card-master').forEach(e => e.classList.remove('active'));
+      if (elem) elem.classList.add('active');
+      renderDetalleVuelos();
+    }
+
+    function renderDetalleVuelos(filtroTexto = '') {
+      const tbody = document.getElementById('tbodyDetalleVuelos');
+      const contMovil = document.getElementById('contenedorCardsMovil');
+      document.getElementById('lblTituloDetalleSemana').innerText = `Semana ${semanaSeleccionada} · Despachos`;
+
+      let vuelosSem = vuelosUsuario.filter(v => Number(v.semana) === semanaSeleccionada);
+
+      if (filtroTexto) {
+        const t = filtroTexto.toLowerCase();
+        vuelosSem = vuelosSem.filter(v => 
+          (v.cliente || '').toLowerCase().includes(t) ||
+          (v.awb || '').toLowerCase().includes(t) ||
+          (v.vuelo || '').toLowerCase().includes(t) ||
+          (v.destino || '').toLowerCase().includes(t) ||
+          (v.linea_aerea || '').toLowerCase().includes(t) ||
+          (v.usuario || '').toLowerCase().includes(t)
+        );
+      }
+
+      const totalColumnas = !esAdministrador ? 11 : 10;
+
+      if (vuelosSem.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="${totalColumnas}" style="text-align:center; padding:20px;">No hay despachos para esta selección.</td></tr>`;
+        contMovil.innerHTML = '<div style="text-align:center; padding:20px; color:var(--color-text-secondary);">No hay despachos.</div>';
+        return;
+      }
+
+      // 1. Render para Desktop
+      tbody.innerHTML = vuelosSem.map(v => `
+        <tr>
+          <td><b>${v.registro}</b></td>
+          <td><span class="badge-tag tag-verde">${v.usuario || 'S/D'}</span></td>
+          <td>${formatearFechaCorta(v.fecha)}<br><small style="color:var(--color-text-secondary);">${formatearFechaCorta(v.ingreso)}</small></td>
+          <td><b>${v.cliente || '-'}</b></td>
+          <td><span class="badge-tag tag-azul">${v.destino || '-'}</span></td>
+          <td>${v.linea_aerea || '-'}</td>
+          <td><b>${v.awb || '-'}</b><br><small>${v.vuelo || '-'}</small></td>
+          <td>${v.vuelo_cnx ? `<b>${v.vuelo_cnx}</b><br><small>${formatearFechaCorta(v.fecha_etd2 || '')}</small>` : '<span style="color:#94A3B8;">Directo</span>'}</td>
+          <td><b>${Number(v.pcs || 0).toLocaleString()} pallets</b><br>${Number(v.kilos || 0).toLocaleString()} kg</td>
+          <td><span class="badge-tag tag-amarillo">${v.tarifa_kg || '-'}</span><br><small>${v.fijos || ''}</small></td>
+          ${!esAdministrador ? `
+          <td style="text-align: right; white-space: nowrap;">
+            <button class="btn-accion edit" title="Editar" onclick='abrirModalEditarVuelo(${JSON.stringify(v)})'>✏️</button>
+            <button class="btn-accion delete" title="Eliminar" onclick="confirmarEliminarVuelo('${v.registro}')">🗑️</button>
+          </td>` : ''}
+        </tr>
+      `).join('');
+
+      // 2. Render para Celular
+      contMovil.innerHTML = vuelosSem.map(v => `
+        <div class="card-vuelo-movil">
+          <div class="card-vuelo-header">
+            <div>
+              <span class="card-vuelo-destino">${v.destino || '—'}</span>
+              <span style="font-size:11px; font-weight:700; color:var(--color-text-secondary); margin-left:6px;">${v.linea_aerea || ''}</span>
+            </div>
+            ${!esAdministrador ? `
+            <div style="display:flex; gap:4px;">
+              <button class="btn-accion edit" onclick='abrirModalEditarVuelo(${JSON.stringify(v)})'>✏️</button>
+              <button class="btn-accion delete" onclick="confirmarEliminarVuelo('${v.registro}')">🗑️</button>
+            </div>` : `<span class="badge-tag tag-verde">${v.usuario || ''}</span>`}
+          </div>
+
+          <div style="display:flex; justify-content:space-between; font-size:11.5px;">
+            <span><b>AWB:</b> ${v.awb || '-'}</span>
+            <span><b>Vuelo:</b> ${v.vuelo || '-'}</span>
+          </div>
+
+          <div class="card-vuelo-ruta">
+            🛫 <b>Tramo 1:</b> ${formatearFechaCorta(v.fecha_etd1)} ${v.hora_etd1 || ''} ➔ ${formatearFechaCorta(v.fecha_eta_1)} ${v.hora_eta1 || ''}<br>
+            ${v.vuelo_cnx ? `🛬 <b>CNX (${v.vuelo_cnx}):</b> ${formatearFechaCorta(v.fecha_etd2)} ${v.hora_etd2 || ''} ➔ ${formatearFechaCorta(v['fecha_eta 2'] || v.fecha_eta_2)} ${v.hora_eta2 || ''}` : '<span style="color:#64748B;">Vuelo Directo sin conexión</span>'}
+          </div>
+
+          <div style="display:flex; justify-content:space-between; align-items:center; font-size:11.5px; border-top:1px dashed var(--color-border); padding-top:6px;">
+            <span>📦 <b>${Number(v.pcs || 0).toLocaleString()}</b> pallets (${Number(v.kilos || 0).toLocaleString()} kg)</span>
+            <span class="badge-tag tag-amarillo">${v.tarifa_kg || 'Sin tarifa'}</span>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    function formatearFechaCorta(f) {
+      if (!f) return '-';
+      return String(f).split('T')[0];
+    }
+
+    function filtrarVuelosEnTabla(term) {
+      renderDetalleVuelos(term);
+    }
+
+    function generarUniqueId() {
+      return Math.random().toString(36).substring(2, 10).toUpperCase();
+    }
+
+    function abrirModalNuevoVuelo() {
+      if (esAdministrador) return;
+
+      try {
+        const modal = document.getElementById('modalVuelo');
+        if (!modal) return;
+
+        document.getElementById('lblModalTitulo').innerText = "Registrar Despacho Aéreo";
+        
+        const form = document.getElementById('formVuelo');
+        if (form) form.reset();
+
+        const nuevoReg = generarUniqueId();
+        const inputReg = document.getElementById('txtRegistroId');
+        if (inputReg) inputReg.value = '';
+
+        const badgeReg = document.getElementById('lblRegistroIdBadge');
+        if (badgeReg) badgeReg.innerText = `Nuevo: ${nuevoReg}`;
+
+        const hoyStr = new Date().toISOString().split('T')[0];
+        const inputFecha = document.getElementById('txtFecha');
+        if (inputFecha) {
+          inputFecha.value = hoyStr;
+          actualizarSemanaSegunFecha(hoyStr);
+        }
+
+        const primerTabBtn = document.querySelector('.form-tab-btn');
+        if (primerTabBtn) {
+          cambiarTabModal(0, primerTabBtn);
+        }
+
+        modal.classList.add('show');
+        modal.style.display = 'flex';
+
+      } catch (err) {
+        console.error("Error abriendo modal:", err);
+      }
+    }
+
+    function cerrarModalVuelo() {
+      const modal = document.getElementById('modalVuelo');
+      if (modal) {
+        modal.classList.remove('show');
+        modal.style.display = 'none';
+      }
+    }
+
+    function abrirModalEditarVuelo(v) {
+      if (esAdministrador) return;
+
+      document.getElementById('lblModalTitulo').innerText = `Editar Despacho`;
+      document.getElementById('txtRegistroId').value = v.registro;
+      document.getElementById('lblRegistroIdBadge').innerText = v.registro;
+
+      document.getElementById('txtFecha').value = formatearFechaCorta(v.fecha);
+      actualizarSemanaSegunFecha(formatearFechaCorta(v.fecha));
+      document.getElementById('txtIngresoFecha').value = formatearFechaCorta(v.ingreso);
+
+      document.getElementById('txtDestino').value = v.destino || '';
+      document.getElementById('txtPcs').value = v.pcs !== null && v.pcs !== undefined ? v.pcs : '';
+      document.getElementById('txtKilos').value = v.kilos !== null && v.kilos !== undefined ? v.kilos : '';
+      document.getElementById('txtNeta').value = v.neta !== null && v.neta !== undefined ? v.neta : '';
+      document.getElementById('txtUld').value = v.uld !== null && v.uld !== undefined ? v.uld : '';
+
+      document.getElementById('txtLineaAerea').value = v.linea_aerea || '';
+      document.getElementById('txtAwb').value = v.awb || '';
+      document.getElementById('txtVuelo').value = v.vuelo || '';
+      document.getElementById('txtFechaEtd1').value = formatearFechaCorta(v.fecha_etd1);
+      document.getElementById('txtHoraEtd1').value = v.hora_etd1 || '';
+      document.getElementById('txtFechaEta1').value = formatearFechaCorta(v.fecha_eta_1);
+      document.getElementById('txtHoraEta1').value = v.hora_eta1 || '';
+
+      document.getElementById('txtVueloCnx').value = v.vuelo_cnx || '';
+      document.getElementById('txtFechaEtd2').value = formatearFechaCorta(v.fecha_etd2);
+      document.getElementById('txtHoraEtd2').value = v.hora_etd2 || '';
+      
+      const eta2Val = v['fecha_eta 2'] || v.fecha_eta_2;
+      document.getElementById('txtFechaEta2').value = formatearFechaCorta(eta2Val);
+      document.getElementById('txtHoraEta2').value = v.hora_eta2 || '';
+
+      document.getElementById('txtTarifa').value = (v.tarifa_kg || '').replace(/^USD\s*/i, '').trim();
+      document.getElementById('txtFijos').value = (v.fijos || '').replace(/^USD\s*/i, '').trim();
+      document.getElementById('txtInfo').value = v.info || '';
+
+      cambiarTabModal(0, document.querySelectorAll('.form-tab-btn')[0]);
+      
+      const modal = document.getElementById('modalVuelo');
+      modal.classList.add('show');
+      modal.style.display = 'flex';
+    }
+
+    async function guardarFormularioVuelo(e) {
+      e.preventDefault();
+      if (esAdministrador) return;
+
+      const btn = document.getElementById('btnGuardarModal');
+      btn.disabled = true;
+      btn.innerText = "Guardando...";
+
+      const idExistente = document.getElementById('txtRegistroId').value.trim();
+      const registroId = idExistente || generarUniqueId();
+      const semanaCalculada = parseInt(document.getElementById('valSemanaCalculada').value, 10);
+
+      const parseNumOrNull = (id) => {
+        const el = document.getElementById(id);
+        if (!el || el.value.trim() === '') return null;
+        const n = parseInt(el.value, 10);
+        return isNaN(n) ? null : n;
+      };
+
+      const getValOrNull = (id) => {
+        const el = document.getElementById(id);
+        if (!el || el.value.trim() === '') return null;
+        return el.value.trim();
+      };
+
+      const formatearMonedaUSD = (val) => {
+        if (!val) return null;
+        const limpio = val.replace(/^USD\s*/i, '').trim();
+        return limpio ? `USD ${limpio}` : null;
+      };
+
+      const fechaEta2 = getValOrNull('txtFechaEta2');
+
+      const vueloData = {
+        registro: registroId,
+        temporada: AÑO_ACTUAL,
+        semana: semanaCalculada || 1,
+        fecha: document.getElementById('txtFecha').value || new Date().toISOString().split('T')[0],
+        ingreso: getValOrNull('txtIngresoFecha'),
+        cliente: 'CECO',
+        destino: (getValOrNull('txtDestino') || '').toUpperCase(),
+        pcs: parseNumOrNull('txtPcs') || 0,
+        kilos: parseNumOrNull('txtKilos') || 0,
+        neta: parseNumOrNull('txtNeta'),
+        uld: parseNumOrNull('txtUld'),
+        info: parseNumOrNull('txtInfo'),
+        linea_aerea: (getValOrNull('txtLineaAerea') || '').toUpperCase(),
+        awb: getValOrNull('txtAwb'),
+        vuelo: getValOrNull('txtVuelo'),
+        fecha_etd1: getValOrNull('txtFechaEtd1'),
+        hora_etd1: getValOrNull('txtHoraEtd1'),
+        fecha_eta_1: getValOrNull('txtFechaEta1'),
+        hora_eta1: getValOrNull('txtHoraEta1'),
+        vuelo_cnx: getValOrNull('txtVueloCnx'),
+        fecha_etd2: getValOrNull('txtFechaEtd2'),
+        hora_etd2: getValOrNull('txtHoraEtd2'),
+        fecha_eta_2: fechaEta2,
+        hora_eta2: getValOrNull('txtHoraEta2'),
+        tarifa_kg: formatearMonedaUSD(getValOrNull('txtTarifa')),
+        fijos: formatearMonedaUSD(getValOrNull('txtFijos')),
+        usuario: sesionUsuario.usuario
+      };
+
+      try {
+        const { error } = await supabaseClient
+          .from('logistitcas_temporada')
+          .upsert([vueloData], { onConflict: 'registro' });
+
+        if (error) throw error;
+
+        if (servSinc && typeof servSinc.guardarVueloLocal === 'function') {
+          servSinc.guardarVueloLocal(vueloData, sesionUsuario.usuario);
+        }
+
+        cerrarModalVuelo();
+        await cargarDatosVuelos();
+
+      } catch (err) {
+        console.error("Error al guardar:", err);
+      } finally {
+        btn.disabled = false;
+        btn.innerText = "Guardar Despacho";
+      }
+    }
+
+    async function confirmarEliminarVuelo(regId) {
+      if (esAdministrador) return;
+
+      const confirmacion = await mostrarModalConfirmacion({
+        icono: '🗑️',
+        titulo: '¿Eliminar Despacho?',
+        mensaje: `Estás por eliminar el registro ${regId}. Esta acción se sincronizará con la base de datos.`,
+        btnTexto: 'Eliminar Despacho',
+        btnClase: 'danger'
+      });
+
+      if (!confirmacion) return;
+
+      try {
+        const { error } = await supabaseClient
+          .from('logistitcas_temporada')
+          .delete()
+          .eq('registro', regId);
+
+        if (error) throw error;
+
+        if (servSinc) {
+          servSinc.eliminarVueloLocal(regId);
+        }
+
+        await cargarDatosVuelos();
+
+      } catch (err) {
+        console.error("Error al eliminar:", err);
+      }
+    }
+
+    function exportarVuelosAPDF() {
+      const vuelosAExportar = semanaSeleccionada 
+        ? vuelosUsuario.filter(v => Number(v.semana) === semanaSeleccionada)
+        : vuelosUsuario;
+
+      if (!vuelosAExportar || vuelosAExportar.length === 0) {
+        mostrarModalConfirmacion({
+          icono: '📄',
+          titulo: 'Sin Registros',
+          mensaje: 'No hay despachos de vuelos registrados para exportar en esta semana.',
+          btnTexto: 'Entendido',
+          btnClase: 'save'
+        });
+        return;
+      }
+
+      const { jsPDF } = window.jspdf;
+      const doc = new jsPDF('l', 'mm', 'a4');
+
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(16);
+      doc.setTextColor(18, 63, 44);
+      doc.text("PLANILLA DE DESPACHO DE VUELOS DE COSECHA · CECO S.A.", 148, 14, { align: 'center' });
+
+      doc.setFontSize(10);
+      doc.setTextColor(85, 99, 88);
+      const subtitulo = `SEMANA: ${semanaSeleccionada || 'TODAS'} · TEMPORADA: ${AÑO_ACTUAL} · FECHA EMISIÓN: ${new Date().toLocaleDateString('es-AR')}`;
+      doc.text(subtitulo, 148, 20, { align: 'center' });
+
+      const columnas = [
+        "REGISTRO", "OPERADOR", "FECHA", "CLIENTE", "DESTINO", 
+        "AEROLÍNEA", "AWB", "VUELO 1", "CONEXIÓN", "PALLETS", "KILOS", "TARIFA"
+      ];
+
+      const filas = vuelosAExportar.map(v => [
+        v.registro || '-',
+        v.usuario || '-',
+        formatearFechaCorta(v.fecha),
+        v.cliente || '-',
+        v.destino || '-',
+        v.linea_aerea || '-',
+        v.awb || '-',
+        v.vuelo || '-',
+        v.vuelo_cnx || 'DIRECTO',
+        Number(v.pcs || 0).toLocaleString(),
+        Number(v.kilos || 0).toLocaleString(),
+        v.tarifa_kg || '-'
+      ]);
+
+      doc.autoTable({
+        startY: 24,
+        head: [columnas],
+        body: filas,
+        theme: 'grid',
+        headStyles: { fillColor: [30, 107, 76], textColor: [255, 255, 255], fontStyle: 'bold', fontSize: 8.5 },
+        styles: { fontSize: 8, cellPadding: 2.5, halign: 'center' },
+        columnStyles: {
+          0: { halign: 'center', fontStyle: 'bold' },
+          3: { halign: 'left' },
+          5: { halign: 'left' },
+          6: { halign: 'center' }
+        }
+      });
+
+      const totalPallets = vuelosAExportar.reduce((a, b) => a + Number(b.pcs || 0), 0);
+      const totalKilos = vuelosAExportar.reduce((a, b) => a + Number(b.kilos || 0), 0);
+      const finalY = doc.lastAutoTable.finalY + 6;
+
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(10);
+      doc.setTextColor(18, 63, 44);
+      doc.text(`TOTALES SEMANA ${semanaSeleccionada}: ${totalPallets.toLocaleString()} PALLETS  |  ${totalKilos.toLocaleString()} KILOS`, 14, finalY);
+
+      doc.save(`Despacho_Vuelos_Semana_${semanaSeleccionada || 'Todas'}.pdf`);
+    }
+
+    async function sincronizar() {
+      const btn = document.getElementById('btnSync');
+      btn.classList.add('rotating');
+      btn.disabled = true;
+
+      try {
+        if (servSinc) {
+          const res = await servSinc.sincronizarVuelosCompleto(AÑO_ACTUAL, sesionUsuario.usuario);
+          mostrarModalConfirmacion({
+            icono: '🔄',
+            titulo: 'Sincronización Completada',
+            mensaje: `${res.subidos} registros subidos, ${res.eliminados} eliminados, ${res.descargados} actualizados desde Supabase.`,
+            btnTexto: 'Aceptar',
+            btnClase: 'save'
+          });
+        }
+        await cargarDatosVuelos();
+      } catch (e) {
+        console.error("Error sincronizando:", e);
+      } finally {
+        btn.classList.remove('rotating');
+        btn.disabled = false;
+      }
+    }
+
+    function filtrarSemanasPreset(tipo, elem) {
+      document.querySelectorAll('.chip-preset').forEach(c => c.classList.remove('active'));
+      elem.classList.add('active');
+
+      if (tipo === 'RECIENTES') {
+        const semanasSet = Array.from(new Set(vuelosUsuario.map(v => Number(v.semana)))).sort((a, b) => b - a).slice(0, 4);
+        const filtrados = vuelosUsuario.filter(v => semanasSet.includes(Number(v.semana)));
+        document.getElementById('contenedorSemanas').innerHTML = semanasSet.map(sem => `
+          <div class="fila-card-master ${sem === semanaSeleccionada ? 'active' : ''}" onclick="seleccionarSemana(${sem}, this)">
+            <div>
+              <div class="f-title">Semana ${sem}</div>
+              <div class="f-sub">${filtrados.filter(v => Number(v.semana) === sem).length} despachos</div>
+            </div>
+            <span class="badge-tag tag-verde">Sem ${sem}</span>
+          </div>
+        `).join('');
+      } else {
+        renderListaSemanas();
+      }
+    }
+
+    function cerrarSesion() {
+      localStorage.removeItem('comex_sesion');
+      window.location.href = '../loguer.html';
+    }
+  </script>
+</body>
+</html>
