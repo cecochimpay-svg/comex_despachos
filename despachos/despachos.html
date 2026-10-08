@@ -16,8 +16,34 @@
   <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&family=Montserrat:wght@600;700;800;900&display=swap" rel="stylesheet">
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <!-- En Electron con nodeIntegration las librerías UMD quedan en module.exports y no en window: se recuperan acá -->
+  <script>
+    (function () {
+      try {
+        if (typeof module === 'object' && module && module.exports) {
+          var m = module.exports;
+          if (!window.supabase && m && typeof m.createClient === 'function') window.supabase = m;
+          if (!window.jspdf && m && typeof m.jsPDF === 'function') window.jspdf = m;
+        }
+      } catch (e) {}
+    })();
+  </script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <!-- En Electron con nodeIntegration las librerías UMD quedan en module.exports y no en window: se recuperan acá -->
+  <script>
+    (function () {
+      try {
+        if (typeof module === 'object' && module && module.exports) {
+          var m = module.exports;
+          if (!window.supabase && m && typeof m.createClient === 'function') window.supabase = m;
+          if (!window.jspdf && m && typeof m.jsPDF === 'function') window.jspdf = m;
+        }
+      } catch (e) {}
+    })();
+  </script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js"></script>
+  <!-- Packing List (Excel + PDF) · mismo directorio que esta página -->
+  <script src="packing_list.js"></script>
 
   <style>
     :root {
@@ -180,6 +206,75 @@
     .grid-vuelos { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 12px; overflow-y: auto; padding: 4px; }
     .card-vuelo { background: #FFFFFF; border: 1.5px solid var(--color-border); border-radius: var(--radius-md); padding: 14px; display: flex; flex-direction: column; gap: 8px; }
     .card-vuelo-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--color-border); padding-bottom: 6px; }
+
+    /* ===== MODAL PACKING LIST ===== */
+    .pl-box { max-width: 900px; padding: 0; gap: 0; overflow: hidden; }
+    .pl-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 14px 18px; background: linear-gradient(90deg, #FFFFFF, #FBF5F4); border-bottom: 1px solid var(--color-border); border-top: 3px solid #A62A28; }
+    .pl-head h3 { margin: 0; font-family: 'Montserrat'; font-size: 15px; color: #7A1F1D; }
+    .pl-head span { font-size: 11px; color: var(--text-secondary); font-weight: 600; }
+    .pl-x { background: #F1F5F9; border: none; border-radius: 50%; width: 28px; height: 28px; cursor: pointer; font-weight: 800; flex-shrink: 0; }
+    .pl-body { padding: 14px 18px; overflow-y: auto; display: flex; flex-direction: column; gap: 12px; }
+    .pl-fila-top { display: flex; gap: 10px; align-items: flex-end; flex-wrap: wrap; }
+    .pl-seg { display: inline-flex; background: #F1F5F9; border: 1px solid var(--color-border); border-radius: 10px; padding: 3px; gap: 3px; }
+    .pl-seg button { border: none; background: transparent; padding: 7px 14px; border-radius: 8px; font-size: 11.5px; font-weight: 800; color: var(--text-secondary); cursor: pointer; }
+    .pl-seg button.on { background: #A62A28; color: #FFFFFF; box-shadow: 0 2px 6px rgba(166, 42, 40, 0.25); }
+    .pl-kpis { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+    .pl-kpi { border: 1px solid var(--color-border); border-left: 4px solid #A62A28; border-radius: 10px; padding: 7px 10px; background: #FFFFFF; }
+    .pl-kpi b { display: block; font-family: 'Montserrat'; font-size: 16px; color: #1A1A1A; }
+    .pl-kpi small { font-size: 9.5px; font-weight: 800; text-transform: uppercase; color: var(--text-secondary); letter-spacing: .3px; }
+    .pl-sec { border: 1px solid var(--color-border); border-radius: 12px; padding: 10px 12px 12px; }
+    .pl-sec-tit { font-size: 10px; font-weight: 800; color: #7A1F1D; text-transform: uppercase; letter-spacing: .5px; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+    .pl-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+    .pl-campo { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+    .pl-campo.dos { grid-column: span 2; }
+    .pl-campo label { font-size: 9.5px; font-weight: 800; text-transform: uppercase; color: var(--text-secondary); }
+    .pl-campo input, .pl-campo select, .pl-campo textarea { width: 100%; padding: 7px 9px; border: 1px solid var(--color-border); border-radius: 8px; font-size: 12px; font-family: inherit; background: #FAFAFA; outline: none; }
+    .pl-campo input:focus, .pl-campo select:focus, .pl-campo textarea:focus { border-color: #A62A28; background: #FFFFFF; box-shadow: 0 0 0 3px rgba(166, 42, 40, 0.08); }
+    .pl-chip { font-size: 10px; font-weight: 700; padding: 3px 8px; border-radius: 12px; background: #ECFDF5; color: #065F46; border: 1px solid #A7F3D0; text-transform: none; letter-spacing: 0; }
+    .pl-chip.gris { background: #F1F5F9; color: #475569; border-color: #CBD5E1; }
+    .pl-prev { max-height: 170px; overflow: auto; border: 1px solid var(--color-border); border-radius: 10px; }
+    .pl-prev table { width: 100%; border-collapse: collapse; font-size: 11px; }
+    .pl-prev th { position: sticky; top: 0; background: #A62A28; color: #fff; font-size: 9.5px; padding: 5px 6px; text-align: center; }
+    .pl-prev td { padding: 4px 6px; border-bottom: 1px solid #EEE; text-align: center; }
+    .pl-prev tr.tot td { background: #F7E8E7; font-weight: 800; }
+    .pl-foot { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 12px 18px; border-top: 1px solid var(--color-border); background: #FAFAF8; flex-wrap: wrap; }
+    .pl-btn { border: 1px solid transparent; border-radius: 8px; padding: 9px 16px; font-size: 12px; font-weight: 800; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; }
+    .pl-btn.excel { background: #1E6B4C; color: #fff; }
+    .pl-btn.excel:hover { background: #104630; }
+    .pl-btn.pdf { background: #A62A28; color: #fff; }
+    .pl-btn.pdf:hover { background: #7A1F1D; }
+    .pl-btn.sec { background: #FFFFFF; border-color: var(--color-border); color: var(--text-secondary); }
+    .pl-btn:disabled { opacity: .55; cursor: wait; }
+    @media (max-width: 760px) { .pl-grid, .pl-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+    .pl-mini { border: 1px solid var(--color-border); background: #FFF; border-radius: 14px; padding: 3px 10px; font-size: 10.5px; font-weight: 700; cursor: pointer; color: var(--text-secondary); text-transform: none; letter-spacing: 0; }
+    .pl-mini:hover { border-color: #A62A28; color: #7A1F1D; }
+    .pl-remitos { display: grid; grid-template-columns: repeat(auto-fill, minmax(205px, 1fr)); gap: 6px; max-height: 168px; overflow-y: auto; }
+    .pl-rem { display: flex; gap: 8px; align-items: flex-start; border: 1.5px solid var(--color-border); border-radius: 10px; padding: 7px 9px; cursor: pointer; background: #FFF; transition: all .12s ease; user-select: none; }
+    .pl-rem:hover { border-color: #C98C8A; }
+    .pl-rem.on { border-color: #A62A28; background: #FBF5F4; box-shadow: inset 3px 0 0 #A62A28; }
+    .pl-rem input { margin-top: 2px; accent-color: #A62A28; }
+    .pl-rem b { display: block; font-size: 11.5px; color: #1A1A1A; }
+    .pl-rem small { display: block; font-size: 10px; color: var(--text-secondary); font-weight: 600; line-height: 1.35; }
+    .pl-nota { margin-top: 8px; font-size: 10.5px; font-weight: 600; color: #92400E; background: #FFFBEB; border: 1px solid #FCD34D; border-radius: 8px; padding: 6px 9px; }
+    .pl-campo input:disabled { background: #F1F5F9; color: #94A3B8; cursor: not-allowed; }
+    .pl-prev { max-height: 230px; }
+    .pl-prev tr.grp td { background: #F2F0EF; color: #7A1F1D; font-weight: 800; text-align: left; border-top: 2px solid #A62A28; }
+    .pl-prev tr.sub td { background: #FCF4F3; font-weight: 700; }
+    .card-vuelo { cursor: pointer; transition: all .15s ease; }
+    .card-vuelo:hover { border-color: #0055A5; box-shadow: 0 6px 16px rgba(0, 85, 165, .12); transform: translateY(-1px); }
+    .vd-kpis { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 8px; }
+    .vd-kpis .pl-kpi { border-left-color: #0055A5; }
+    .vd-tabla { width: 100%; border-collapse: collapse; font-size: 11.5px; }
+    .vd-tabla th { background: #ECEFF1; font-size: 9.5px; font-weight: 800; color: var(--text-secondary); text-transform: uppercase; padding: 6px 8px; text-align: left; position: sticky; top: 0; }
+    .vd-tabla td { padding: 6px 8px; border-bottom: 1px solid #EEE; text-align: left; }
+    .vd-tabla tr.cli td { background: #F8FAFC; font-weight: 800; color: var(--color-adm-dark); }
+    .vd-tabla .num, .vd-tabla th.num { text-align: right; }
+    .monitor-barra { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; }
+    .monitor-barra input { padding: 6px 10px; border: 1px solid var(--color-border); border-radius: 8px; font-size: 11.5px; width: 240px; outline: none; }
+    .monitor-barra input:focus { border-color: #0055A5; }
+    .btn-cli-pl { border: 1px solid rgba(166,42,40,.35); background: #FFF; color: #A62A28; border-radius: 8px; padding: 3px 7px; font-size: 10.5px; font-weight: 800; cursor: pointer; flex-shrink: 0; }
+    .btn-cli-pl:hover { background: #A62A28; color: #FFF; }
+    @media (max-width: 760px) { .vd-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
   </style>
 </head>
 <body>
@@ -230,7 +325,10 @@
         <div class="panel-card" style="height: 45%;">
           <div class="panel-header-sub">
             <span class="panel-header-title" id="lblTituloRemitosP1">Remitos del Cliente</span>
-            <span style="font-size:10.5px; color:var(--text-secondary);">Hacé clic en un remito para ver el desglose de pallets abajo</span>
+            <span style="display:flex; align-items:center; gap:10px;">
+              <span style="font-size:10.5px; color:var(--text-secondary);">Hacé clic en un remito para ver el desglose abajo</span>
+              <button class="btn-pdf-action" style="background:#A62A28;" onclick="exportarPackingCliente(clienteSeleccionadoP1)">📦 Packing total del cliente</button>
+            </span>
           </div>
           <div class="tabla-wrap">
             <table class="tabla-custom">
@@ -348,13 +446,133 @@
     <!-- PESTAÑA 3 -->
     <div id="secTabVuelos" style="display:none; flex:1; overflow:hidden; flex-direction:column; gap:10px;">
       <div class="panel-header-sub" style="background:#FFFFFF; border-radius:var(--radius-md); border:1.5px solid var(--color-border);">
-        <span class="panel-header-title">Vuelos Programados COMEX</span>
-        <span style="font-size:11px; color:var(--text-secondary);" id="lblResumenVuelos">Cargando vuelos...</span>
+        <div class="monitor-barra" style="width:100%;">
+          <div>
+            <span class="panel-header-title">Vuelos Despachados</span>
+            <span style="font-size:11px; color:var(--text-secondary); margin-left:8px;" id="lblResumenVuelos">Cargando vuelos...</span>
+          </div>
+          <input type="text" id="inputBuscarVuelo" placeholder="🔍 Buscar vuelo, destino, cliente o remito…" oninput="renderizarPestana3Vuelos()">
+        </div>
       </div>
       <div class="grid-vuelos" id="contGridVuelos"></div>
     </div>
 
   </main>
+
+  <!-- MODAL PACKING LIST -->
+  <div class="modal-overlay" id="modalPacking">
+    <div class="modal-box pl-box">
+      <div class="pl-head">
+        <div>
+          <h3>📦 Packing List</h3>
+          <span id="plSubtitulo">—</span>
+        </div>
+        <button type="button" class="pl-x" onclick="cerrarModalPacking()">✕</button>
+      </div>
+
+      <div class="pl-body">
+        <div class="pl-fila-top">
+          <div class="pl-campo">
+            <label>Formato</label>
+            <div class="pl-seg">
+              <button type="button" id="plTipoEXPO" onclick="plCambiarTipo('EXPO')">✈️ Exportación</button>
+              <button type="button" id="plTipoMI" onclick="plCambiarTipo('MI')">🚚 Mercado interno</button>
+            </div>
+          </div>
+          <div class="pl-campo">
+            <label>Cómo se arma</label>
+            <div class="pl-seg">
+              <button type="button" id="plModoREMITO" onclick="plCambiarModo('REMITO')" title="Excel con una hoja por remito · PDF con una página por remito">📄 Uno por remito</button>
+              <button type="button" id="plModoCONSOLIDADO" onclick="plCambiarModo('CONSOLIDADO')" title="Un solo documento con subtotales por remito">🧾 Consolidado</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="pl-sec">
+          <div class="pl-sec-tit">
+            <span>Remitos a exportar <span class="pl-chip gris" id="plChipSel" style="margin-left:6px;">0 de 0</span></span>
+            <span style="display:flex; gap:6px;">
+              <button type="button" class="pl-mini" onclick="plSeleccionarTodos(true)">Todos</button>
+              <button type="button" class="pl-mini" onclick="plSeleccionarTodos(false)">Ninguno</button>
+            </span>
+          </div>
+          <div class="pl-remitos" id="plRemitos"></div>
+        </div>
+
+        <div class="pl-kpis">
+          <div class="pl-kpi"><small>Pallets</small><b id="plKpiPallets">0</b></div>
+          <div class="pl-kpi"><small>Cajas</small><b id="plKpiCajas">0</b></div>
+          <div class="pl-kpi"><small>Kilos netos</small><b id="plKpiKilos">0</b></div>
+          <div class="pl-kpi"><small>Se genera</small><b id="plKpiSalida" style="font-size:12px; line-height:19px;">—</b></div>
+        </div>
+
+        <div class="pl-sec">
+          <div class="pl-sec-tit"><span>Encabezado del documento</span><span class="pl-chip gris" id="plChipVuelo">Datos de vuelo: sin vincular</span></div>
+          <div class="pl-grid">
+            <div class="pl-campo"><label>Fecha</label><input type="date" id="plFecha"></div>
+            <div class="pl-campo dos"><label id="plLblCliente">Consignee</label><input type="text" id="plCliente"></div>
+            <div class="pl-campo"><label>Destino</label><input type="text" id="plDestino" placeholder="PVG / MIA / Bs As"></div>
+            <div class="pl-campo"><label>Vuelo</label><input type="text" id="plVuelo" placeholder="LH 511"></div>
+            <div class="pl-campo"><label>AWB #</label><input type="text" id="plAwb" placeholder="724-86873220"></div>
+            <div class="pl-campo"><label>Aerolínea</label><input type="text" id="plAerolinea"></div>
+            <div class="pl-campo"><label>GGN</label><input type="text" id="plGgn"></div>
+            <div class="pl-campo"><label>ETD (salida)</label><input type="text" id="plEtd" placeholder="dd/mm/aaaa hh:mm"></div>
+            <div class="pl-campo"><label>ETA (llegada)</label><input type="text" id="plEta" placeholder="dd/mm/aaaa hh:mm"></div>
+            <div class="pl-campo"><label>Producto</label><input type="text" id="plProducto"></div>
+            <div class="pl-campo"><label>Categoría</label><input type="text" id="plCategoria" list="plDlCategorias"></div>
+          </div>
+          <div class="pl-nota" id="plNotaVaria" style="display:none;"></div>
+          <datalist id="plDlCategorias"><option value="CAT.1"><option value="CAT.2"><option value="EXTRA"><option value="COMERCIAL"></datalist>
+        </div>
+
+        <div class="pl-sec" id="plSecCamion">
+          <div class="pl-sec-tit"><span>🚚 Datos del camión</span></div>
+          <div class="pl-grid">
+            <div class="pl-campo"><label>Chofer</label><input type="text" id="plChofer"></div>
+            <div class="pl-campo"><label>Patente</label><input type="text" id="plPatente"></div>
+            <div class="pl-campo"><label>Teléfono</label><input type="text" id="plTelefono"></div>
+            <div class="pl-campo"><label>Transporte</label><input type="text" id="plTransporte"></div>
+          </div>
+        </div>
+
+        <div class="pl-sec">
+          <div class="pl-sec-tit"><span>Detalle que va al documento</span><span class="pl-chip gris" id="plChipFilas">0 renglones</span></div>
+          <div class="pl-prev" id="plPrevia"></div>
+          <div class="pl-campo" style="margin-top:8px;"><label id="plLblObs">Remarks / observaciones</label><textarea id="plObs" rows="2" placeholder="Ej: Mantener cadena de frío 0-1 °C"></textarea></div>
+        </div>
+      </div>
+
+      <div class="pl-foot">
+        <button type="button" class="pl-btn sec" onclick="plResumenInterno()" title="El PDF horizontal anterior, para uso interno">🗂️ Resumen interno</button>
+        <div style="display:flex; gap:8px;">
+          <button type="button" class="pl-btn sec" onclick="cerrarModalPacking()">Cancelar</button>
+          <button type="button" class="pl-btn excel" id="plBtnExcel" onclick="plExportar('excel')">📊 Descargar Excel</button>
+          <button type="button" class="pl-btn pdf" id="plBtnPdf" onclick="plExportar('pdf')">📄 Generar PDF</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL DETALLE DE VUELO (monitor) -->
+  <div class="modal-overlay" id="modalVueloDesp">
+    <div class="modal-box pl-box" style="max-width:860px;">
+      <div class="pl-head" style="border-top-color:#0055A5; background:linear-gradient(90deg,#FFFFFF,#F2F7FD);">
+        <div>
+          <h3 style="color:#003B73;" id="vdTitulo">✈️ Vuelo</h3>
+          <span id="vdSub">—</span>
+        </div>
+        <button type="button" class="pl-x" onclick="cerrarDetalleVueloMonitor()">✕</button>
+      </div>
+      <div class="pl-body" id="vdBody"></div>
+      <div class="pl-foot">
+        <span style="font-size:11px; color:var(--text-secondary); font-weight:600;" id="vdPie"></span>
+        <div style="display:flex; gap:8px;">
+          <button type="button" class="pl-btn sec" onclick="cerrarDetalleVueloMonitor()">Cerrar</button>
+          <button type="button" class="pl-btn pdf" onclick="vdPackingVuelo()">📦 Packing List del vuelo</button>
+        </div>
+      </div>
+    </div>
+  </div>
 
   <!-- MODAL FICHA TÉCNICA -->
   <div class="modal-overlay" id="modalFichaTecnica">
@@ -426,7 +644,9 @@
   document.addEventListener('dragstart', (e) => e.preventDefault());
     const SUPABASE_URL = 'https://veqpyhifwubcdxocckmf.supabase.co';
     const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZlcXB5aGlmd3ViY2R4b2Nja21mIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU4NzI5NzAsImV4cCI6MjA5MTQ0ODk3MH0.mIRsPLLoHn9jQtvCCwxG3aNFWtXIdcV12kLTC_MqybY';
-    const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+    let supabaseClient = null;
+    try { supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY); }
+    catch (e) { console.error('Supabase no disponible:', e); }
 
     const isElectron = typeof require === 'function';
     let db = null;
@@ -636,6 +856,7 @@
           const paso = 1000;
           let hayMas = true;
 
+          if (!supabaseClient) throw new Error('No cargó la librería de Supabase (revisá la conexión)');
           while (hayMas) {
             const hasta = desde + paso - 1;
             const { data, error } = await supabaseClient
@@ -783,12 +1004,12 @@
       }
 
       cont.innerHTML = clientesArr.map(c => `
-        <div class="item-card-row ${c.nombre === clienteSeleccionadoP1 ? 'active' : ''}" onclick="seleccionarClienteP1('${c.nombre}', this)">
-          <div>
+        <div class="item-card-row ${c.nombre === clienteSeleccionadoP1 ? 'active' : ''}" data-cli="${plEsc(c.nombre)}" onclick="seleccionarClienteP1(this.dataset.cli, this)">
+          <div style="min-width:0;">
             <div class="card-txt-title">${c.nombre}</div>
             <div class="card-txt-sub">${c.remitosSet.size} remito(s) · ${c.pallets} pallets</div>
           </div>
-          <span class="badge-pill badge-green">${c.remitosSet.size}</span>
+          <button class="btn-cli-pl" title="Packing List con todo el detalle del cliente" onclick="event.stopPropagation(); exportarPackingCliente(this.parentElement.dataset.cli)">📦</button>
         </div>
       `).join('');
 
@@ -851,7 +1072,7 @@
           <td><b>${r.palletsCount} pallets</b></td>
           <td>${Math.round(r.kilos).toLocaleString()} kg</td>
           <td style="text-align:center;" onclick="event.stopPropagation();">
-            <button class="btn-pdf-action" onclick="exportarPackingConsolidado('${clienteSeleccionadoP1}', '${normalizarFecha(r.fecha)}')">
+            <button class="btn-pdf-action" onclick="exportarPackingConsolidado('${clienteSeleccionadoP1}', '${normalizarFecha(r.fecha)}', '${r.remito}')">
               📦 Packing
             </button>
             <button class="btn-remito-action" onclick="imprimirRemitoOficial('${r.remito}')">
@@ -1010,7 +1231,7 @@
             <td>${envasesTexto}</td>
             <td style="text-align:center;" onclick="event.stopPropagation();">
               <button class="btn-pdf-action" onclick="exportarPackingConsolidado('${c.cliente}', '${fechaSeleccionadaP2}')">
-                📑 Exportar Packing Fecha
+                📦 Packing List
               </button>
             </td>
           </tr>
@@ -1080,68 +1301,153 @@
     // ==============================================================
     // PESTAÑA 3: MONITOR DE VUELOS
     // ==============================================================
+    let vuelosMonitor = [];
+    let vueloMonitorAbierto = null;
+
     function renderizarPestana3Vuelos() {
       const cont = document.getElementById('contGridVuelos');
       const vuelosMap = {};
 
+      // Un vuelo = código + fecha (el mismo número de vuelo sale todos los días)
       listaDespachos.forEach(d => {
         const vueloCod = (d.nro_manifiesto_carga || 'SIN VUELO').toUpperCase().trim();
-        if (!vuelosMap[vueloCod]) {
-          vuelosMap[vueloCod] = {
-            vuelo: vueloCod,
-            destino: d.nro_guia_frutihorticola || 'S/D',
-            fecha: d.fecha_salida,
-            remitosSet: new Set(),
-            clientesSet: new Set(),
-            palletsCount: 0,
-            kilos: 0
-          };
+        const fecha = normalizarFecha(d.fecha_salida);
+        const key = `${vueloCod}|${fecha}`;
+        if (!vuelosMap[key]) {
+          vuelosMap[key] = { key, vuelo: vueloCod, fecha, destinos: new Set(), remitosSet: new Set(), clientesSet: new Set(), palletsSet: new Set(), cajas: 0, kilos: 0, regs: [] };
         }
-        if (d.nro_remito_embarque) vuelosMap[vueloCod].remitosSet.add(d.nro_remito_embarque);
-        if (d.cliente) vuelosMap[vueloCod].clientesSet.add(d.cliente.toUpperCase().trim());
-        vuelosMap[vueloCod].palletsCount += 1;
-        vuelosMap[vueloCod].kilos += Math.abs(Number(d.kg || 0));
+        const v = vuelosMap[key];
+        if (d.nro_guia_frutihorticola) v.destinos.add(String(d.nro_guia_frutihorticola).trim());
+        if (d.nro_remito_embarque) v.remitosSet.add(d.nro_remito_embarque);
+        if (d.cliente) v.clientesSet.add(d.cliente.toUpperCase().trim());
+        v.palletsSet.add(`${d.nro_remito_embarque}|${d.pallet_integrado || d.numero_romaneo_interno || 'S/P'}`);
+        v.cajas += Math.abs(Number(d.cantidad || 0));
+        v.kilos += Math.abs(Number(d.kg || 0));
+        v.regs.push(d);
       });
 
-      const vuelosArr = Object.values(vuelosMap).sort((a, b) => b.fecha.localeCompare(a.fecha));
-      document.getElementById('lblResumenVuelos').innerText = `${vuelosArr.length} Vuelos activos`;
+      const q = (document.getElementById('inputBuscarVuelo')?.value || '').toLowerCase().trim();
+      const todos = Object.values(vuelosMap).sort((a, b) => b.fecha.localeCompare(a.fecha) || a.vuelo.localeCompare(b.vuelo));
+      vuelosMonitor = todos.filter(v => !q || [v.vuelo, ...v.destinos, ...v.clientesSet, ...v.remitosSet].some(x => String(x).toLowerCase().includes(q)));
+      document.getElementById('lblResumenVuelos').innerText = `${vuelosMonitor.length} de ${todos.length} vuelos · tocá uno para ver el detalle`;
 
-      if (vuelosArr.length === 0) {
-        cont.innerHTML = '<div style="padding:20px; font-size:11.5px; color:var(--text-secondary);">No hay vuelos registrados en el histórico.</div>';
+      if (vuelosMonitor.length === 0) {
+        cont.innerHTML = '<div style="padding:20px; font-size:11.5px; color:var(--text-secondary);">No hay vuelos para mostrar.</div>';
         return;
       }
 
-      cont.innerHTML = vuelosArr.map(v => `
-        <div class="card-vuelo">
+      cont.innerHTML = vuelosMonitor.map((v, i) => `
+        <div class="card-vuelo" onclick="abrirDetalleVueloMonitor(${i})">
           <div class="card-vuelo-header">
             <div>
-              <span style="font-family:'Montserrat'; font-weight:800; color:var(--azul-francia); font-size:13px;">✈️ ${v.vuelo}</span>
-              <div style="font-size:10px; color:var(--text-secondary); margin-top:2px;">Destino: <b>${v.destino}</b> · Fecha: ${formatearFechaVisual(normalizarFecha(v.fecha))}</div>
+              <span style="font-family:'Montserrat'; font-weight:800; color:var(--azul-francia); font-size:13px;">✈️ ${plEsc(v.vuelo)}</span>
+              <div style="font-size:10px; color:var(--text-secondary); margin-top:2px;">Destino: <b>${plEsc(Array.from(v.destinos).join(' / ') || 'S/D')}</b> · ${formatearFechaVisual(v.fecha)}</div>
             </div>
-            <span class="badge-pill badge-blue">${v.palletsCount} Pallets</span>
+            <span class="badge-pill badge-blue">${v.palletsSet.size} Pallets</span>
           </div>
           <div style="font-size:10.5px; color:var(--text-secondary); display:flex; flex-direction:column; gap:3px;">
-            <div><b>Clientes:</b> ${Array.from(v.clientesSet).join(', ') || '-'}</div>
-            <div><b>Remitos:</b> ${Array.from(v.remitosSet).join(', ') || '-'}</div>
-            <div style="color:var(--color-adm); font-weight:700;"><b>Total Kilos:</b> ${Math.round(v.kilos).toLocaleString()} kg</div>
+            <div><b>Clientes:</b> ${plEsc(Array.from(v.clientesSet).join(', ') || '-')}</div>
+            <div><b>Remitos:</b> ${v.remitosSet.size} · <b>Cajas:</b> ${v.cajas.toLocaleString('es-AR')}</div>
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+              <span style="color:var(--color-adm); font-weight:700;">${Math.round(v.kilos).toLocaleString('es-AR')} kg</span>
+              <span style="color:var(--azul-francia); font-weight:800;">Ver detalle ›</span>
+            </div>
           </div>
         </div>
       `).join('');
     }
 
+    function abrirDetalleVueloMonitor(idx) {
+      const v = vuelosMonitor[idx];
+      if (!v) return;
+      vueloMonitorAbierto = v;
+
+      // Agrupado por cliente → remito
+      const porCli = {};
+      const calibres = {};
+      v.regs.forEach(d => {
+        const cli = (d.cliente || 'SIN CLIENTE').toUpperCase().trim();
+        const rem = d.nro_remito_embarque || 'S/R';
+        porCli[cli] = porCli[cli] || {};
+        const r = porCli[cli][rem] = porCli[cli][rem] || { remito: rem, pallets: new Set(), cajas: 0, kilos: 0, variedades: new Set(), termos: new Set() };
+        r.pallets.add(d.pallet_integrado || d.numero_romaneo_interno || 'S/P');
+        const cant = Math.abs(Number(d.cantidad || 0));
+        r.cajas += cant;
+        r.kilos += Math.abs(Number(d.kg || 0));
+        if (d.variedad) r.variedades.add(d.variedad);
+        if (d.pallet_termografo && String(d.pallet_termografo).trim() !== '0') r.termos.add(String(d.pallet_termografo).trim());
+        const cal = normalizarCalibre(d.calibre) || 'S/C';
+        calibres[cal] = (calibres[cal] || 0) + cant;
+      });
+
+      document.getElementById('vdTitulo').innerText = `✈️ ${v.vuelo}`;
+      document.getElementById('vdSub').innerText = `${Array.from(v.destinos).join(' / ') || 'Sin destino'} · ${formatearFechaVisual(v.fecha)}`;
+      const k = (lbl, val) => `<div class="pl-kpi"><small>${lbl}</small><b>${val}</b></div>`;
+      const filas = Object.keys(porCli).sort().map(cli => {
+        const rems = Object.values(porCli[cli]);
+        const pal = rems.reduce((a, r) => a + r.pallets.size, 0);
+        const caj = rems.reduce((a, r) => a + r.cajas, 0);
+        return `<tr class="cli"><td colspan="2">🏢 ${plEsc(cli)}</td><td class="num">${pal}</td><td class="num">${caj.toLocaleString('es-AR')}</td><td class="num">${Math.round(rems.reduce((a, r) => a + r.kilos, 0)).toLocaleString('es-AR')}</td><td></td></tr>` +
+          rems.map(r => `<tr>
+            <td>Remito <b>${plEsc(r.remito)}</b></td>
+            <td style="font-size:10.5px; color:var(--text-secondary);">${plEsc(Array.from(r.variedades).join(', '))}${r.termos.size ? ' · 🌡️ ' + plEsc(Array.from(r.termos).join(', ')) : ''}</td>
+            <td class="num">${r.pallets.size}</td><td class="num">${r.cajas.toLocaleString('es-AR')}</td><td class="num">${Math.round(r.kilos).toLocaleString('es-AR')}</td>
+            <td style="text-align:right; white-space:nowrap;">
+              <button class="btn-pdf-action" style="background:#A62A28;" data-r="${plEsc(r.remito)}" onclick="vdPackingVuelo(this.dataset.r)">📦</button>
+              <button class="btn-remito-action" data-r="${plEsc(r.remito)}" onclick="imprimirRemitoOficial(this.dataset.r)">📄</button>
+            </td></tr>`).join('');
+      }).join('');
+      const cals = Object.keys(calibres).sort((a, b) => (parseInt(a, 10) || 0) - (parseInt(b, 10) || 0));
+
+      document.getElementById('vdBody').innerHTML = `
+        <div class="vd-kpis">
+          ${k('Clientes', v.clientesSet.size)}${k('Remitos', v.remitosSet.size)}${k('Pallets', v.palletsSet.size)}
+          ${k('Cajas', v.cajas.toLocaleString('es-AR'))}${k('Kilos', Math.round(v.kilos).toLocaleString('es-AR'))}
+        </div>
+        <div class="pl-sec">
+          <div class="pl-sec-tit" style="color:#003B73;"><span>Clientes y remitos del vuelo</span><span class="pl-chip gris">📦 packing · 📄 remito</span></div>
+          <div class="pl-prev" style="max-height:300px;">
+            <table class="vd-tabla">
+              <thead><tr><th>Remito</th><th>Variedades / termógrafos</th><th class="num">Pallets</th><th class="num">Cajas</th><th class="num">Kilos</th><th></th></tr></thead>
+              <tbody>${filas}</tbody>
+            </table>
+          </div>
+        </div>
+        <div class="pl-sec">
+          <div class="pl-sec-tit" style="color:#003B73;"><span>Cajas por calibre</span></div>
+          <div style="display:flex; flex-wrap:wrap; gap:6px;">
+            ${cals.map(c => `<span class="badge-pill badge-blue" style="font-size:11px; padding:4px 10px;">${plEsc(c)}: <b>${calibres[c].toLocaleString('es-AR')}</b></span>`).join('')}
+          </div>
+        </div>`;
+      document.getElementById('vdPie').innerText = `${v.remitosSet.size} remito(s) · ${v.clientesSet.size} cliente(s)`;
+      document.getElementById('modalVueloDesp').classList.add('show');
+    }
+
+    function cerrarDetalleVueloMonitor() {
+      document.getElementById('modalVueloDesp').classList.remove('show');
+    }
+
+    function vdPackingVuelo(remito = null) {
+      const v = vueloMonitorAbierto;
+      if (!v) return;
+      cerrarDetalleVueloMonitor();
+      abrirPacking({ registros: v.regs, titulo: `Vuelo ${v.vuelo} · ${formatearFechaVisual(v.fecha)}`, seleccion: remito ? [remito] : null, modo: 'REMITO' });
+    }
+
     // ==============================================================
     // GENERADOR PACKING CONSOLIDADO (AGRUPACIÓN DIRECTA DE LA VISTA)
     // ==============================================================
-    function exportarPackingConsolidado(cliente, fecha) {
+    function exportarPackingResumenInterno(cliente, fecha, registrosElegidos = null) {
       // 1. Filtrar registros directos de la vista
-      const registros = listaDespachos.filter(d => 
+      const registros = registrosElegidos || listaDespachos.filter(d => 
         normalizarFecha(d.fecha_salida) === fecha &&
         (d.cliente || 'SIN CLIENTE').toUpperCase().trim() === cliente
       );
 
       if (!registros || registros.length === 0) {
-        return alert("Sin registros para exportar.");
+        return lanzarToast("Sin registros para exportar.", 'error');
       }
+      if (!window.jspdf) return lanzarToast('No se pudo cargar jsPDF (revisá la conexión).', 'error');
 
       const { jsPDF } = window.jspdf;
       const doc = new jsPDF('l', 'mm', 'a4'); // A4 Horizontal
@@ -1371,6 +1677,402 @@
 
       doc.save(`Packing_${cliente.replace(/\s+/g, '_')}_${fecha}.pdf`);
       lanzarToast("Packing PDF consolidado generado exitosamente.");
+    }
+
+    // ==============================================================
+    // PACKING LIST OFICIAL (EXCEL / PDF) · ver packing_list.js
+    // ==============================================================
+    const plEstado = { titulo: '', registros: [], remitos: [], sel: new Set(), modo: 'REMITO', tipo: 'EXPO', busqueda: 0, vuelos: new Map(), docs: [] };
+    const PL_PREFS_KEY = 'ceco_packing_prefs';
+    const PL_PRODUCTO_DEF = { EXPO: 'FRESH CHERRIES', MI: 'CEREZAS FRESCAS' };
+    const PL_CAMPOS_VUELO = ['plVuelo', 'plAwb', 'plAerolinea', 'plEtd', 'plEta', 'plDestino'];
+    const plEl = id => document.getElementById(id);
+    const plEsc = v => String(v ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    const plNorm = s => String(s || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+    const plTxt = v => { const x = String(v ?? '').trim(); return x === '0' ? '' : x; };
+    const plUnicos = (regs, ...campos) => Array.from(new Set(regs.map(r => {
+      for (const c of campos) { const v = plTxt(r[c]); if (v) return v; }
+      return '';
+    }).filter(Boolean)));
+
+    function plPrefs() {
+      try { return JSON.parse(localStorage.getItem(PL_PREFS_KEY) || '{}') || {}; } catch (_) { return {}; }
+    }
+    function plGuardarPrefs() {
+      try {
+        const p = plPrefs();
+        p[plEstado.tipo] = { ggn: plEl('plGgn').value.trim(), producto: plEl('plProducto').value.trim(), categoria: plEl('plCategoria').value.trim() };
+        localStorage.setItem(PL_PREFS_KEY, JSON.stringify(p));
+      } catch (_) {}
+    }
+
+    // ---- Puntos de entrada ----------------------------------------------------
+    // Desde un remito (pestaña 1) o desde un cliente del día (pestaña 2)
+    function exportarPackingConsolidado(cliente, fecha, remito = null) {
+      const registros = listaDespachos.filter(d =>
+        normalizarFecha(d.fecha_salida) === fecha &&
+        (d.cliente || 'SIN CLIENTE').toUpperCase().trim() === cliente
+      );
+      abrirPacking({ registros, titulo: `${cliente} · ${formatearFechaVisual(fecha)}`, seleccion: remito ? [remito] : null, modo: 'REMITO' });
+    }
+
+    // Todo el detalle de un cliente (todas las fechas y remitos)
+    function exportarPackingCliente(cliente) {
+      const registros = listaDespachos.filter(d => (d.cliente || 'SIN CLIENTE').toUpperCase().trim() === cliente);
+      abrirPacking({ registros, titulo: `${cliente} · detalle total del cliente`, modo: 'CONSOLIDADO' });
+    }
+
+    function abrirPacking({ registros, titulo, seleccion = null, modo = 'REMITO' }) {
+      if (!window.PackingList) return lanzarToast('Falta el archivo packing_list.js junto a esta página.', 'error');
+      if (!registros || !registros.length) return lanzarToast('Sin registros para exportar.', 'error');
+
+      // Info de cada remito
+      const mapa = new Map();
+      registros.forEach(r => {
+        const rem = plTxt(r.nro_remito_embarque) || 'S/R';
+        if (!mapa.has(rem)) mapa.set(rem, { remito: rem, fecha: normalizarFecha(r.fecha_salida), regs: [], pallets: new Set(), cajas: 0, clientes: new Set(), vuelos: new Set(), destinos: new Set() });
+        const m = mapa.get(rem);
+        m.regs.push(r);
+        m.pallets.add(plTxt(r.pallet_integrado) || plTxt(r.numero_romaneo_interno) || 'S/P');
+        m.cajas += Math.abs(Number(r.cantidad || 0));
+        if (plTxt(r.cliente)) m.clientes.add(plTxt(r.cliente).toUpperCase());
+        if (plTxt(r.nro_manifiesto_carga)) m.vuelos.add(plTxt(r.nro_manifiesto_carga));
+        if (plTxt(r.nro_guia_frutihorticola)) m.destinos.add(plTxt(r.nro_guia_frutihorticola));
+      });
+      plEstado.remitos = Array.from(mapa.values()).map(m => ({
+        ...m, pallets: m.pallets.size, cliente: Array.from(m.clientes).join(' / '),
+        vuelo: Array.from(m.vuelos).join(' / '), destino: Array.from(m.destinos).join(' / '),
+      })).sort((a, b) => a.fecha.localeCompare(b.fecha) || a.remito.localeCompare(b.remito, 'es', { numeric: true }));
+
+      plEstado.titulo = titulo;
+      plEstado.registros = registros;
+      const pedidos = seleccion ? seleccion.map(x => String(x).trim()) : null;
+      plEstado.sel = new Set(plEstado.remitos.map(r => r.remito).filter(r => !pedidos || pedidos.includes(r)));
+      if (!plEstado.sel.size) plEstado.sel = new Set(plEstado.remitos.map(r => r.remito));
+      plEstado.modo = modo;
+
+      // Limpieza del formulario
+      ['plFecha', 'plCliente', ...PL_CAMPOS_VUELO, 'plChofer', 'plTelefono', 'plObs', 'plProducto', 'plCategoria', 'plGgn', 'plPatente', 'plTransporte']
+        .forEach(id => { plEl(id).value = ''; delete plEl(id).dataset.editado; plEl(id).disabled = false; });
+      ['plFecha', 'plCliente', ...PL_CAMPOS_VUELO, 'plProducto', 'plCategoria', 'plGgn', 'plChofer', 'plPatente', 'plTelefono', 'plTransporte', 'plObs']
+        .forEach(id => plEl(id).oninput = () => { plEl(id).dataset.editado = '1'; plRecalcular(); });
+      plEl('plPatente').value = plUnicos(registros, 'patentes', 'patente').join(' / ');
+      plEl('plTransporte').value = plUnicos(registros, 'transporte').join(' / ');
+
+      const hayVuelos = plEstado.remitos.some(r => r.vuelo);
+      plEstado.tipo = '';
+      plCambiarTipo(hayVuelos ? 'EXPO' : 'MI', true);
+      plRenderRemitos();
+      plAplicarSeleccion();
+      plEl('modalPacking').classList.add('show');
+      plBuscarDatosVuelos();
+    }
+
+    function cerrarModalPacking() {
+      plEl('modalPacking').classList.remove('show');
+    }
+
+    // ---- Selección de remitos --------------------------------------------------
+    function plRenderRemitos() {
+      const variosClientes = new Set(plEstado.remitos.map(r => r.cliente)).size > 1;
+      plEl('plRemitos').innerHTML = plEstado.remitos.map((r, i) => `
+        <label class="pl-rem ${plEstado.sel.has(r.remito) ? 'on' : ''}">
+          <input type="checkbox" ${plEstado.sel.has(r.remito) ? 'checked' : ''} onchange="plToggleRemito(${i}, this.checked)">
+          <div style="min-width:0;">
+            <b>Remito ${plEsc(r.remito)}</b>
+            <small>${formatearFechaVisual(r.fecha)}${r.vuelo ? ' · ' + plEsc(r.vuelo) : ''}${r.destino ? ' ' + plEsc(r.destino) : ''}</small>
+            ${variosClientes ? `<small style="color:#7A1F1D;">${plEsc(r.cliente)}</small>` : ''}
+            <small><b style="display:inline; font-size:10px; color:#A62A28;">${r.pallets}</b> pallets · ${r.cajas.toLocaleString('es-AR')} cajas</small>
+          </div>
+        </label>`).join('');
+      plEl('plChipSel').textContent = `${plEstado.sel.size} de ${plEstado.remitos.length}`;
+    }
+
+    function plToggleRemito(i, on) {
+      const r = plEstado.remitos[i];
+      if (!r) return;
+      if (on) plEstado.sel.add(r.remito); else plEstado.sel.delete(r.remito);
+      plRenderRemitos();
+      plAplicarSeleccion();
+    }
+
+    function plSeleccionarTodos(on) {
+      plEstado.sel = new Set(on ? plEstado.remitos.map(r => r.remito) : []);
+      plRenderRemitos();
+      plAplicarSeleccion();
+    }
+
+    const plSeleccionados = () => plEstado.remitos.filter(r => plEstado.sel.has(r.remito));
+
+    // Ajusta encabezado según lo elegido: si todos comparten cliente / vuelo se edita arriba; si no, se toma de cada remito
+    function plAplicarSeleccion() {
+      const sel = plSeleccionados();
+      const clientes = Array.from(new Set(sel.map(r => r.cliente).filter(Boolean)));
+      const vuelos = Array.from(new Set(sel.map(r => r.vuelo).filter(Boolean)));
+      const fechas = sel.map(r => r.fecha).filter(Boolean).sort();
+      const cliUnico = clientes.length <= 1;
+      const vueloUnico = vuelos.length <= 1;
+      plEstado.cliUnico = cliUnico;
+      plEstado.vueloUnico = vueloUnico;
+
+      const auto = (id, valor) => { const el = plEl(id); if (el.dataset.editado !== '1') el.value = valor || ''; };
+      const cli = plEl('plCliente');
+      cli.disabled = !cliUnico;
+      cli.placeholder = cliUnico ? '' : 'Varía por remito: se toma el cliente de cada uno';
+      if (cliUnico) auto('plCliente', clientes[0] || ''); else cli.value = '';
+
+      PL_CAMPOS_VUELO.forEach(id => {
+        const el = plEl(id);
+        el.disabled = !vueloUnico;
+        if (!vueloUnico) { el.value = ''; el.placeholder = 'Varía por remito'; }
+        else el.placeholder = { plVuelo: 'LH 511', plAwb: '724-86873220', plEtd: 'dd/mm/aaaa hh:mm', plEta: 'dd/mm/aaaa hh:mm', plDestino: 'PVG / MIA / Bs As', plAerolinea: '' }[id];
+      });
+      if (vueloUnico) {
+        auto('plVuelo', vuelos[0] || '');
+        auto('plDestino', Array.from(new Set(sel.map(r => r.destino).filter(Boolean))).join(' / '));
+        const dv = plDatosVuelo(vuelos[0]);
+        auto('plAwb', dv.awb); auto('plAerolinea', dv.aerolinea); auto('plEtd', dv.etd); auto('plEta', dv.eta);
+        if (dv.destino && !plEl('plDestino').value.trim()) auto('plDestino', dv.destino);
+      }
+
+      const fechaEl = plEl('plFecha');
+      const variasFechas = new Set(fechas).size > 1;
+      const fechaPorRemito = plEstado.modo === 'REMITO' && sel.length > 1 && variasFechas;
+      fechaEl.disabled = fechaPorRemito;
+      if (fechaPorRemito) fechaEl.value = '';
+      else auto('plFecha', fechas[fechas.length - 1] || '');
+      plEstado.fechaUnica = !fechaPorRemito;
+
+      const notas = [];
+      if (!cliUnico) notas.push('hay remitos de distintos clientes');
+      if (!vueloUnico) notas.push('hay remitos de distintos vuelos (AWB, horarios y destino salen de cada remito y de Vuelos COMEX)');
+      if (fechaPorRemito) notas.push('cada remito lleva su propia fecha');
+      plEl('plNotaVaria').style.display = notas.length ? '' : 'none';
+      plEl('plNotaVaria').textContent = notas.length ? `ℹ️ Ojo: ${notas.join(' · ')}.` : '';
+      plRecalcular();
+    }
+
+    function plCambiarModo(modo) {
+      plEstado.modo = modo === 'CONSOLIDADO' ? 'CONSOLIDADO' : 'REMITO';
+      plEl('plModoREMITO').classList.toggle('on', plEstado.modo === 'REMITO');
+      plEl('plModoCONSOLIDADO').classList.toggle('on', plEstado.modo === 'CONSOLIDADO');
+      plAplicarSeleccion();
+    }
+
+    function plCambiarTipo(tipo, inicial = false) {
+      const anterior = plEstado.tipo;
+      plEstado.tipo = tipo === 'MI' ? 'MI' : 'EXPO';
+      const t = plEstado.tipo;
+      plEl('plTipoEXPO').classList.toggle('on', t === 'EXPO');
+      plEl('plTipoMI').classList.toggle('on', t === 'MI');
+      plEl('plModoREMITO').classList.toggle('on', plEstado.modo === 'REMITO');
+      plEl('plModoCONSOLIDADO').classList.toggle('on', plEstado.modo === 'CONSOLIDADO');
+      plEl('plSecCamion').style.display = t === 'MI' ? '' : 'none';
+      plEl('plLblCliente').textContent = t === 'EXPO' ? 'Consignee' : 'Cliente';
+      plEl('plLblObs').textContent = t === 'EXPO' ? 'Remarks (observaciones que salen en el documento)' : 'Observaciones';
+
+      const pref = plPrefs()[t] || {};
+      const prod = plEl('plProducto');
+      if (!prod.value.trim() || prod.value.trim() === PL_PRODUCTO_DEF[anterior]) prod.value = pref.producto || PL_PRODUCTO_DEF[t];
+      if (!plEl('plCategoria').value.trim()) plEl('plCategoria').value = pref.categoria || 'CAT.1';
+      if (!plEl('plGgn').value.trim()) plEl('plGgn').value = pref.ggn || (window.PackingList ? PackingList.EMPRESA.ggn : '');
+      if (!inicial) plRecalcular();
+    }
+
+    // ---- Datos de vuelo (Vuelos COMEX) ----------------------------------------
+    function plDatosVuelo(vueloCod) {
+      const v = plEstado.vuelos.get(plNorm(vueloCod));
+      if (!v) return {};
+      const fh = (f, h) => [f ? formatearFechaVisual(normalizarFecha(f)) : '', h ? String(h).slice(0, 5) : ''].filter(Boolean).join(' ');
+      const eta2 = v['fecha_eta 2'] || v.fecha_eta_2;
+      return {
+        awb: plTxt(v.awb), aerolinea: plTxt(v.linea_aerea), destino: plTxt(v.destino),
+        etd: fh(v.fecha_etd1, v.hora_etd1),
+        eta: v.vuelo_cnx && (eta2 || v.hora_eta2) ? fh(eta2, v.hora_eta2) : fh(v.fecha_eta_1, v.hora_eta1),
+      };
+    }
+
+    async function plBuscarDatosVuelos() {
+      const chip = plEl('plChipVuelo');
+      const token = ++plEstado.busqueda;
+      plEstado.vuelos = new Map();
+      const codigos = Array.from(new Set(plEstado.remitos.flatMap(r => r.vuelo.split(' / ')).filter(c => plNorm(c).length >= 3)));
+      if (!codigos.length) { chip.className = 'pl-chip gris'; chip.textContent = 'Datos de vuelo: los remitos no tienen vuelo'; return; }
+      chip.className = 'pl-chip gris'; chip.textContent = 'Buscando vuelos en Vuelos COMEX…';
+
+      const fechas = plEstado.remitos.map(r => r.fecha).filter(f => /^\d{4}-\d{2}-\d{2}$/.test(f)).sort();
+      let candidatos = [];
+      try { if (db) candidatos = db.prepare('SELECT * FROM local_logistitcas_temporada').all() || []; } catch (_) {}
+      if (!candidatos.length && navigator.onLine) {
+        try {
+          const desplazar = (iso, n) => { const x = new Date(`${iso}T12:00:00`); x.setDate(x.getDate() + n); return `${x.getFullYear()}-${String(x.getMonth() + 1).padStart(2, '0')}-${String(x.getDate()).padStart(2, '0')}`; };
+          let q = supabaseClient.from('logistitcas_temporada').select('*');
+          if (fechas.length) q = q.gte('fecha', desplazar(fechas[0], -10)).lte('fecha', desplazar(fechas[fechas.length - 1], 10));
+          const { data, error } = await q.limit(2000);
+          if (!error) candidatos = data || [];
+        } catch (_) {}
+      }
+      if (token !== plEstado.busqueda) return;
+
+      let encontrados = 0;
+      codigos.forEach(cod => {
+        const objetivo = plNorm(cod);
+        const coincide = x => { const n = plNorm(x); return n.length >= 3 && (n === objetivo || n.includes(objetivo) || objetivo.includes(n)); };
+        const fechaRem = (plEstado.remitos.find(r => r.vuelo.split(' / ').includes(cod)) || {}).fecha || '';
+        const dist = v => Math.abs(new Date(`${String(v.fecha || '').slice(0, 10)}T12:00:00`) - new Date(`${fechaRem}T12:00:00`)) || 0;
+        const m = candidatos.filter(v => coincide(v.vuelo) || coincide(v.vuelo_cnx) || coincide(v.awb)).sort((a, b) => dist(a) - dist(b))[0];
+        if (m) { plEstado.vuelos.set(objetivo, m); encontrados++; }
+      });
+      chip.className = encontrados ? 'pl-chip' : 'pl-chip gris';
+      chip.textContent = encontrados
+        ? (codigos.length === 1 ? `✓ Vinculado a Vuelos COMEX · AWB ${plDatosVuelo(codigos[0]).awb || '-'}` : `✓ ${encontrados} de ${codigos.length} vuelos vinculados a Vuelos COMEX`)
+        : 'Vuelo no encontrado en Vuelos COMEX · completalo a mano';
+      plAplicarSeleccion();
+    }
+
+    // ---- Armado de los documentos ---------------------------------------------
+    function plBaseOpciones() {
+      const v = id => plEl(id).value.trim();
+      return {
+        tipo: plEstado.tipo,
+        ggn: v('plGgn'), producto: v('plProducto'), categoria: v('plCategoria'),
+        chofer: v('plChofer'), patente: v('plPatente'), telefono: v('plTelefono'), transporte: v('plTransporte'),
+        observaciones: v('plObs'),
+      };
+    }
+
+    function plOpcionesVuelo(remitos) {
+      const v = id => plEl(id).value.trim();
+      if (plEstado.vueloUnico) return { vuelo: v('plVuelo'), awb: v('plAwb'), aerolinea: v('plAerolinea'), etd: v('plEtd'), eta: v('plEta'), destino: v('plDestino') };
+      // Varios vuelos: se arma con lo de cada remito
+      const vuelos = Array.from(new Set(remitos.flatMap(r => r.vuelo.split(' / ')).filter(Boolean)));
+      const datos = vuelos.map(plDatosVuelo);
+      const juntar = campo => Array.from(new Set(datos.map(d => d[campo]).filter(Boolean))).join(' / ');
+      return {
+        vuelo: vuelos.join(' / '), awb: juntar('awb'), aerolinea: juntar('aerolinea'), etd: juntar('etd'), eta: juntar('eta'),
+        destino: Array.from(new Set(remitos.flatMap(r => r.destino.split(' / ')).filter(Boolean))).join(' / ') || juntar('destino'),
+      };
+    }
+
+    // Devuelve la lista de packings a generar (1 consolidado o 1 por remito)
+    function plConstruirDocumentos() {
+      const sel = plSeleccionados();
+      if (!sel.length) return [];
+      const base = plBaseOpciones();
+      const cliente = r => plEstado.cliUnico ? (plEl('plCliente').value.trim() || r.cliente) : r.cliente;
+
+      if (plEstado.modo === 'CONSOLIDADO' || sel.length === 1) {
+        const regs = sel.flatMap(r => r.regs);
+        const pl = PackingList.construir(regs, {
+          ...base, ...plOpcionesVuelo(sel),
+          cliente: plEstado.cliUnico ? cliente(sel[0]) : Array.from(new Set(sel.map(r => r.cliente))).join(' / '),
+          fecha: plEl('plFecha').value || sel[sel.length - 1].fecha,
+          remitos: sel.map(r => r.remito).filter(r => r !== 'S/R'),
+          agruparPorRemito: true,
+        });
+        return [pl];
+      }
+      return sel.map(r => {
+        const pl = PackingList.construir(r.regs, {
+          ...base, ...plOpcionesVuelo([r]),
+          cliente: cliente(r),
+          fecha: (plEstado.fechaUnica && plEl('plFecha').value) || r.fecha,
+          remitos: r.remito !== 'S/R' ? [r.remito] : [],
+        });
+        pl.nombreHoja = `R ${r.remito}`;
+        return pl;
+      });
+    }
+
+    function plRecalcular() {
+      if (!window.PackingList || !plEstado.remitos.length) return;
+      const docs = plConstruirDocumentos();
+      plEstado.docs = docs;
+      const sel = plSeleccionados();
+
+      const tot = docs.reduce((a, pl) => ({ pallets: a.pallets + pl.totales.pallets, cajas: a.cajas + pl.totales.cajas, kilos: a.kilos + pl.totales.kilos, filas: a.filas + pl.totales.filas }), { pallets: 0, cajas: 0, kilos: 0, filas: 0 });
+      plEl('plSubtitulo').textContent = `${plEstado.titulo} · ${plEstado.remitos.length} remito(s) disponibles`;
+      plEl('plKpiPallets').textContent = tot.pallets.toLocaleString('es-AR');
+      plEl('plKpiCajas').textContent = tot.cajas.toLocaleString('es-AR');
+      plEl('plKpiKilos').textContent = tot.kilos.toLocaleString('es-AR', { maximumFractionDigits: 1 });
+      plEl('plKpiSalida').textContent = !docs.length ? 'Elegí remitos'
+        : docs.length === 1 ? (sel.length > 1 ? `1 consolidado · ${sel.length} remitos` : '1 packing')
+        : `Excel ${docs.length} hojas · PDF ${docs.length} pág.`;
+      plEl('plChipFilas').textContent = `${tot.filas} renglón(es) · ${tot.pallets} pallet(s)`;
+      plEl('plBtnExcel').disabled = !docs.length;
+      plEl('plBtnPdf').disabled = !docs.length;
+
+      if (!docs.length) { plEl('plPrevia').innerHTML = '<div style="padding:18px; text-align:center; font-size:12px; color:var(--text-secondary);">Marcá al menos un remito.</div>'; return; }
+
+      // Vista previa: dibujada por remito
+      const cal = Array.from(new Set(docs.flatMap(pl => pl.calibres))).sort((a, b) => {
+        const na = parseInt(a, 10), nb = parseInt(b, 10);
+        return (isNaN(na) ? -1 : na) - (isNaN(nb) ? -1 : nb) || a.localeCompare(b);
+      });
+      const col = 7 + cal.length;
+      const filasPallet = (pl, p) => p.filas.map((f, i) => `
+        <tr>
+          <td>${i === 0 ? `<b>${p.item}</b>` : ''}</td>
+          <td>${i === 0 ? `<b style="color:#A62A28;">${plEsc(p.nro)}</b>` : ''}</td>
+          <td style="text-align:left;">${plEsc(f.variedad)}</td>
+          <td>${String(f.peso).replace('.', ',')} kg</td>
+          <td>${plEsc(f.marca)}</td>
+          <td>${i === 0 && p.termografos.length ? '🌡️ ' + plEsc(p.termografos.join(', ')) : ''}</td>
+          ${cal.map(c => `<td>${f.sizes[c] ? f.sizes[c].toLocaleString('es-AR') : ''}</td>`).join('')}
+          <td><b>${f.total.toLocaleString('es-AR')}</b></td>
+        </tr>`).join('');
+      const sub = (texto, t) => `<tr class="sub"><td colspan="6" style="text-align:right;">${texto}</td>${cal.map(c => `<td>${t.porCal[c] ? t.porCal[c].toLocaleString('es-AR') : ''}</td>`).join('')}<td>${t.cajas.toLocaleString('es-AR')}</td></tr>`;
+
+      let cuerpo = '';
+      docs.forEach((pl, di) => {
+        pl.grupos.forEach(g => {
+          const dv = plDatosVuelo((g.vuelo || '').split(' / ')[0]);
+          const vueloTxt = plEstado.vueloUnico ? plEl('plAwb').value.trim() : dv.awb;
+          cuerpo += `<tr class="grp"><td colspan="${col}">${docs.length > 1 ? `Hoja ${di + 1} · ` : ''}REMITO ${plEsc(g.remito)} · ${formatearFechaVisual(g.fecha)}${g.vuelo ? ' · ' + plEsc(g.vuelo) : ''}${g.destino ? ' ' + plEsc(g.destino) : ''}${vueloTxt ? ' · AWB ' + plEsc(vueloTxt) : ''}${!plEstado.cliUnico ? ' · ' + plEsc(g.cliente) : ''}</td></tr>`;
+          cuerpo += g.pallets.map(p => filasPallet(pl, p)).join('');
+          cuerpo += sub(`Subtotal remito ${plEsc(g.remito)}`, g.totales);
+        });
+      });
+      if (sel.length > 1) {
+        const porCal = {};
+        docs.forEach(pl => Object.entries(pl.totales.porCal).forEach(([c, n]) => porCal[c] = (porCal[c] || 0) + n));
+        cuerpo += `<tr class="tot"><td colspan="6" style="text-align:right;">TOTAL ${sel.length} REMITOS</td>${cal.map(c => `<td>${(porCal[c] || 0).toLocaleString('es-AR')}</td>`).join('')}<td>${tot.cajas.toLocaleString('es-AR')}</td></tr>`;
+      }
+      plEl('plPrevia').innerHTML = `
+        <table>
+          <thead><tr><th>Ítem</th><th>Pallet</th><th>Variedad</th><th>Caja</th><th>Marca</th><th>Termóg.</th>${cal.map(c => `<th>${plEsc(c)}</th>`).join('')}<th>Total</th></tr></thead>
+          <tbody>${cuerpo}</tbody>
+        </table>`;
+    }
+
+    function plExportar(formato) {
+      if (!window.PackingList) return lanzarToast('Falta el archivo packing_list.js junto a esta página.', 'error');
+      plRecalcular();
+      const docs = plEstado.docs;
+      if (!docs.length || !docs.some(pl => pl.totales.pallets)) return lanzarToast('Marcá al menos un remito con pallets.', 'error');
+      const btn = plEl(formato === 'excel' ? 'plBtnExcel' : 'plBtnPdf');
+      btn.disabled = true;
+      try {
+        plGuardarPrefs();
+        const nombre = formato === 'excel' ? PackingList.descargarExcelMulti(docs) : PackingList.abrirPdfMulti(docs);
+        lanzarToast(formato === 'excel'
+          ? `Excel generado${docs.length > 1 ? ` (${docs.length} hojas, una por remito)` : ''}: ${nombre}`
+          : `PDF listo${docs.length > 1 ? ` (${docs.length} páginas)` : ''}: elegí "Guardar como PDF" en la ventana de impresión.`);
+        if (plEstado.tipo === 'EXPO' && docs.some(pl => !pl.cab.awb)) setTimeout(() => lanzarToast('Ojo: hay packing de exportación sin AWB.', 'error'), 400);
+      } catch (e) {
+        console.error(e);
+        lanzarToast('No se pudo generar: ' + (e.message || e), 'error');
+      } finally {
+        setTimeout(() => { btn.disabled = false; }, 600);
+      }
+    }
+
+    function plResumenInterno() {
+      const sel = plSeleccionados();
+      if (!sel.length) return lanzarToast('Marcá al menos un remito.', 'error');
+      const cli = Array.from(new Set(sel.map(r => r.cliente))).join(' / ');
+      const fechas = sel.map(r => r.fecha).sort();
+      exportarPackingResumenInterno(cli, fechas[fechas.length - 1], sel.flatMap(r => r.regs));
     }
 
     // ==============================================================
