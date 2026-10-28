@@ -91,6 +91,11 @@ const db = {
           return Object.values(store.local_pallet_detalle);
         }
         return [];
+      },
+
+      // Primera fila de la consulta (las tablas sin copia local, como usuarios, devuelven undefined)
+      get(...params) {
+        return this.all(...params)[0];
       }
     };
   }
