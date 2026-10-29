@@ -738,8 +738,12 @@
       document.getElementById('proAvatar').textContent = String(sesion.usuario).trim().slice(0, 2);
     }
 
-    function cerrarSesion() {
+    async function cerrarSesion() {
       try { localStorage.removeItem('comex_sesion'); } catch (_) {}
+      // Cierra también la sesión de Supabase Auth (sin esperar más de 1,5 s si no hay red)
+      if (supabaseClient) {
+        await Promise.race([supabaseClient.auth.signOut({ scope: 'local' }).catch(() => {}), new Promise(r => setTimeout(r, 1500))]);
+      }
       window.location.href = '../loguer.html';
     }
 

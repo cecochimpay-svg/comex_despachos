@@ -6,11 +6,18 @@ require('dotenv').config();
 // ==========================================
 // CLIENTES SUPABASE
 // ==========================================
+// Dentro de la ventana de la app usa la sesión del usuario que ingresó (la guarda supabase-js en
+// localStorage al iniciar sesión). Sin esa sesión la base no entrega los vuelos (COMEX 004_acceso_con_sesion.sql).
+const almacenSesion = typeof localStorage !== 'undefined' ? localStorage : null;
+
 const supabaseCampo = createClient(
   process.env.SUPABASE_EMPA_URL || 'https://veqpyhifwubcdxocckmf.supabase.co',
   process.env.SUPABASE_EMPA_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZlcXB5aGlmd3ViY2R4b2Nja21mIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU4NzI5NzAsImV4cCI6MjA5MTQ0ODk3MH0.mIRsPLLoHn9jQtvCCwxG3aNFWtXIdcV12kLTC_MqybY',
   {
-    auth: { persistSession: false },
+    // La página renueva el token; este cliente solo lo lee
+    auth: almacenSesion
+      ? { storage: almacenSesion, persistSession: true, autoRefreshToken: false, detectSessionInUrl: false }
+      : { persistSession: false },
     db: { schema: 'public' }
   }
 );
@@ -75,7 +82,8 @@ async function verificarConexiones() {
   }
 
   try {
-    const { error } = await supabaseCampo.from('comex_usuarios').select('id').limit(1);
+    // comex_usuarios no es legible con la clave pública: se prueba con la tabla de vuelos
+    const { error } = await supabaseCampo.from('logistitcas_temporada').select('id').limit(1);
     if (!error) estado.supabase = true;
   } catch (e) {
     console.warn('Supabase fuera de línea:', e.message);

@@ -293,6 +293,17 @@
 
     const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
+    // Sesión de Supabase Auth: sin ella la base no entrega datos (COMEX 004_acceso_con_sesion.sql).
+    // Al volver al ingreso se descarta la sesión anterior.
+    const CLAVE_AUTH = 'sb-veqpyhifwubcdxocckmf-auth-token';
+    localStorage.removeItem('comex_sesion');
+    localStorage.removeItem(CLAVE_AUTH);
+
+    // Correo interno de la cuenta (igual que public.comex_email() en Supabase)
+    function emailDe(usuario) {
+      return usuario.trim().toLowerCase().replace(/[^a-z0-9._-]/g, '_') + '@comex.cecoargentina.com';
+    }
+
     // Nombre de la PC para el registro de accesos (comex_accesos)
     function nombreEquipo() {
       try {
@@ -543,6 +554,10 @@
         }
 
         const usuarioEncontrado = res;
+
+        // Abre la sesión de Supabase Auth (antes de correr 004 la cuenta no existe: se sigue igual)
+        const { error: errAuth } = await supabaseClient.auth.signInWithPassword({ email: emailDe(userVal), password: passVal });
+        if (errAuth) console.warn('Sin sesión de Supabase Auth:', errAuth.message);
 
         const sesion = {
           id: usuarioEncontrado.id,
